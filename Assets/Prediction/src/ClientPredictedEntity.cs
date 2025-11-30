@@ -8,7 +8,6 @@ using UnityEngine;
 namespace Prediction
 {
     //TODO: document in readme
-    //TODO: visuals interpolation
     public class ClientPredictedEntity : AbstractPredictedEntity
     {
         //STATE TRACKING
@@ -139,18 +138,18 @@ namespace Prediction
             lastAppliedFollowerTick = serverStateBuffer.GetEndTick();
         }
         
-        public void BufferServerTick(uint lastAppliedTick, PhysicsStateRecord latestServerState)
+        public void BufferServerTick(uint lastAppliedTick, PhysicsStateRecord serverState)
         {
             //Debug.Log($"[Prediction][BufferServerTick] tickId:{latestServerState.tickId}");
-            if (AddServerState(lastAppliedTick, latestServerState))
+            if (AddServerState(lastAppliedTick, serverState))
             {
                 //interpolationsProvider?.Add(lastAppliedTick, latestServerState);
                 //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
-                if (lastAppliedTick < latestServerState.tickId)
+                if (lastAppliedTick < serverState.tickId)
                     return;
                 
-                var resimulateFromLocalState = localStateBuffer.Get((int)latestServerState.tickId);
-                PredictionDecision decision = resimulationEligibilityCheckHook(latestServerState.tickId, localStateBuffer, serverStateBuffer);
+                var resimulateFromLocalState = localStateBuffer.Get((int)serverState.tickId);
+                PredictionDecision decision = resimulationEligibilityCheckHook(serverState.tickId, localStateBuffer, serverStateBuffer);
                 switch (decision)
                 {
                     case PredictionDecision.NOOP:
@@ -158,12 +157,12 @@ namespace Prediction
                         break;
                     
                     case PredictionDecision.RESIMULATE:
-                        Resimulate(lastAppliedTick, resimulateFromLocalState, latestServerState);
+                        Resimulate(lastAppliedTick, resimulateFromLocalState, serverState);
                         break;
                     
                     case PredictionDecision.SNAP:
                         totalDesyncToSnapCount++;
-                        SnapTo(latestServerState);
+                        SnapTo(serverState);
                         break;
                 }
                 //TODO: consider a decision where we need to pause simulation on client to let server catch up...

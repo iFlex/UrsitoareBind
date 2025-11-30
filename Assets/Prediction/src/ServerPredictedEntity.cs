@@ -34,11 +34,19 @@ namespace Prediction
             inputQueue.emptyValue = null;
         }
 
+        private uint lastAppliedTick = 0;
+        public int inputJumps = 0;
         public PhysicsStateRecord ServerSimulationTick()
         {
             PredictionInputRecord nextInput = TakeNextInput();
             if (nextInput != null)
             {
+                int delta = (int)(tickId > lastAppliedTick ? tickId - lastAppliedTick : lastAppliedTick - tickId);
+                lastAppliedTick = tickId;
+                if (delta > 1)
+                {
+                    inputJumps++;
+                }
                 //TODO: validate input, should happen in LoadInput
                 LoadInput(nextInput);
             }
