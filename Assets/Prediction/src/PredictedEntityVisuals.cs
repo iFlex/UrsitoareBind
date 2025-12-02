@@ -22,14 +22,21 @@ namespace Prediction
         public double currentTimeStep = 0;
         public double targetTime = 0;
         public double artifficialDelay = 1f;
-        public void SetClientPredictedEntity(ClientPredictedEntity clientPredictedEntity)
+        private bool visualsDetached = false;
+        
+        public void SetClientPredictedEntity(ClientPredictedEntity clientPredictedEntity, bool detachVisuals)
         {
             this.clientPredictedEntity = clientPredictedEntity;
             follow = clientPredictedEntity.gameObject;
             currentTimeStep -= artifficialDelay;
             
             //TODO: listen for destruction events
-            visualsEntity.transform.SetParent(null);
+            if (detachVisuals)
+            {
+                visualsDetached = true;
+                visualsEntity.transform.SetParent(null);
+            }
+            
             clientPredictedEntity.interpolationsProvider?.SetInterpolationTarget(visualsEntity.transform);
             hasVIP = clientPredictedEntity.interpolationsProvider != null;
             if (debug)
@@ -50,7 +57,21 @@ namespace Prediction
         private float defaultLerpFactor = 20f;
         void Update()
         {
-            if (!follow)
+            if (debug)
+            {
+                PhysicsStateRecord rec = clientPredictedEntity?.serverStateBuffer.GetEnd();
+                if (rec != null && serverGhost)
+                {
+                    serverGhost.transform.position = rec.position;
+                    serverGhost.transform.rotation = rec.rotation;   
+                }
+                if (serverGhost)
+                    serverGhost.SetActive(SHOW_DBG);
+                if (clientGhost)
+                    clientGhost.SetActive(SHOW_DBG);
+            }
+            
+            if (!follow || !visualsDetached)
                 return;
             
             //TODO: proper integration
@@ -76,17 +97,6 @@ namespace Prediction
                 visualsEntity.transform.rotation = Quaternion.Lerp(visualsEntity.transform.rotation, follow.transform.rotation, lerpAmount);
             }
             */
-            if (debug)
-            {
-                PhysicsStateRecord rec = clientPredictedEntity.serverStateBuffer.GetEnd();
-                if (rec != null)
-                {
-                    serverGhost.transform.position = rec.position;
-                    serverGhost.transform.rotation = rec.rotation;   
-                }
-                serverGhost.SetActive(SHOW_DBG);
-                clientGhost.SetActive(SHOW_DBG);
-            }
         }
     }
 }

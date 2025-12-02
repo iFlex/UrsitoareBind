@@ -87,7 +87,7 @@ namespace DefaultNamespace
                 predictionManager.AddPredictedEntity(entity.netId, entity.serverPredictedEntity);   
                 predictionManager.SetEntityOwner(entity.serverPredictedEntity, entity.netIdentity.connectionToClient.connectionId);
             }
-            if (isClient)
+            if (isClient && entity.clientPredictedEntity != null)
             {
                 predictionManager.AddPredictedEntity(entity.netId, entity.clientPredictedEntity);
                 if (entity.netIdentity.isOwned)

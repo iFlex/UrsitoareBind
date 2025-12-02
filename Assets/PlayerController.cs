@@ -11,6 +11,7 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
 {
     [SerializeField] private Rigidbody rb;
     [SerializeField] private PredictedEntityVisuals pev;
+    [SerializeField] private Renderer renderer;
     
     public ClientPredictedEntity clientPredictedEntity;
     public ServerPredictedEntity serverPredictedEntity;
@@ -21,7 +22,7 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
     
     public static SafeEventDispatcher<PlayerController> spawned = new SafeEventDispatcher<PlayerController>();
     public static SafeEventDispatcher<PlayerController> despawned = new SafeEventDispatcher<PlayerController>();
-
+    
     void Start()
     {
         spawned.Dispatch(this);
@@ -37,6 +38,12 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
         pcam = newCamera;
     }
 
+    public void Customize()
+    {
+        Debug.Log("PAINT_IT!");
+        renderer.material.color = Color.yellow;
+    }
+
     public override void OnStartServer()
     {
         serverPredictedEntity = new ServerPredictedEntity(30, rb, gameObject, new PredictableControllableComponent[1]{this}, new PredictableComponent[1]{this});
@@ -45,16 +52,31 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
     
     public override void OnStartClient()
     {
-        clientPredictedEntity = new ClientPredictedEntity(30, rb, gameObject, new PredictableControllableComponent[1]{this}, new PredictableComponent[1]{this});
-        clientPredictedEntity.gameObject = gameObject;
-        clientPredictedEntity.interpolationsProvider = new MovingAverageInterpolator();
-        pev.SetClientPredictedEntity(clientPredictedEntity);
+        if (!isServer || isOwned)
+        {
+            ConfigurePrediction(!isServer);
+        }
     }
 
     public override void OnStartAuthority()
     {
-        clientPredictedEntity.isControlled = true;
+        if (!isServer || isOwned)
+        {
+            clientPredictedEntity.isControlled = true;
+            SingletonUtils.localCPE = clientPredictedEntity;
+        }
+        
         SetCamera(SingletonUtils.instance.povCam);
+        Customize();
+    }
+
+    void ConfigurePrediction(bool detachVisuals)
+    {
+        clientPredictedEntity = new ClientPredictedEntity(30, rb, gameObject, new PredictableControllableComponent[1]{this}, new PredictableComponent[1]{this});
+        clientPredictedEntity.gameObject = gameObject;
+        clientPredictedEntity.interpolationsProvider = new MovingAverageInterpolator();
+        SingletonUtils.localVisInterpolator = (MovingAverageInterpolator) clientPredictedEntity.interpolationsProvider;
+        pev.SetClientPredictedEntity(clientPredictedEntity, detachVisuals);
     }
 
     private void Update()
@@ -67,7 +89,7 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
 
         if (clientPredictedEntity != null && SingletonUtils.instance.clientText)
         {
-            SingletonUtils.instance.clientText.text = $"Tick:{clientPredictedEntity.totalTicks}\n ServerDelay:{clientPredictedEntity.GetServerDelay()}\n Resimulations:{clientPredictedEntity.totalResimulations}\n AvgResimLen:{clientPredictedEntity.GetAverageResimPerTick()} TotalResimSteps:{clientPredictedEntity.totalResimulationSteps}\n Skips:{clientPredictedEntity.totalSimulationSkips}";
+            SingletonUtils.instance.clientText.text = $"Tick:{clientPredictedEntity.totalTicks}\n ServerDelay:{clientPredictedEntity.GetServerDelay()}\n Resimulations:{clientPredictedEntity.totalResimulations}\n AvgResimLen:{clientPredictedEntity.GetAverageResimPerTick()} TotalResimSteps:{clientPredictedEntity.totalResimulationSteps}\n Skips:{clientPredictedEntity.totalSimulationSkips}\n Velo:{clientPredictedEntity.rigidbody.linearVelocity.magnitude}\n DistThres:{SingletonUtils.CURRENT_DECIDER.distResimThreshold}\n SmoothWindow:{SingletonUtils.localVisInterpolator.slidingWindowTickSize}";
         }
     }
 

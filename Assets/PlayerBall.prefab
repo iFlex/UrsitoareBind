@@ -188,6 +188,8 @@ MonoBehaviour:
   syncInterval: 0
   rb: {fileID: 1526699890830082510}
   pev: {fileID: 6699726022370081141}
+  renderer: {fileID: 2616370444602553321}
+  pcam: {fileID: 0}
   powerMagnitude: 3
   boostPowerMultiplier: 7
 --- !u!114 &2786243932360149106
@@ -224,3 +226,7 @@ MonoBehaviour:
   serverGhostPrefab: {fileID: 1411505712420300842, guid: a3af3b0aab58e2c4eaf81e291965959a, type: 3}
   clientGhostPrefab: {fileID: 469044331578854956, guid: 831bec228b2584e4e84249037aaf1014, type: 3}
   follow: {fileID: 0}
+  hasVIP: 0
+  currentTimeStep: 0
+  targetTime: 0
+  artifficialDelay: 1

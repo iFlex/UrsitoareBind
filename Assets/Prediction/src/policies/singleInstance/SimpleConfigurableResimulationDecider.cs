@@ -5,7 +5,7 @@ namespace Prediction.policies.singleInstance
 {
     public class SimpleConfigurableResimulationDecider : SingleSnapshotInstanceResimChecker
     {
-        private float distResimThreshold;
+        public float distResimThreshold;
         private float maxResimulationDelta;
         private float maxAngleDelta;
         private float maxVeloAngleDelta;
@@ -14,12 +14,21 @@ namespace Prediction.policies.singleInstance
         public SimpleConfigurableResimulationDecider()
         {
             //distResimThreshold = 1f;
-            distResimThreshold = 0.1f;
+            //distResimThreshold = 0.1f;
             //distResimThreshold = 0.01f;
-            //distResimThreshold = 0.001f;  //This was optimum at some point?
+            distResimThreshold = 0.001f;  //This was optimum at some point?
             //distResimThreshold = 0.0001f; //lots of resims
             maxResimulationDelta = 1f;
             
+            maxAngleDelta = 0f;
+            maxVeloAngleDelta = 0;
+            maxAngularVeloMagDelta = 0;
+        }
+
+        public SimpleConfigurableResimulationDecider(float dist)
+        {
+            distResimThreshold = dist;
+            maxResimulationDelta = 1f;
             maxAngleDelta = 0f;
             maxVeloAngleDelta = 0;
             maxAngularVeloMagDelta = 0;

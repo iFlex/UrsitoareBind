@@ -65,7 +65,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 002192ac53fd9144a92c5dd7b22819a7, type: 2}
+  - {fileID: 5667405433580985021, guid: 25f03344dfdd844f88e89487c558fe35, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -296,6 +296,7 @@ MonoBehaviour:
   syncInterval: 0
   rb: {fileID: 1526699890830082510}
   pev: {fileID: 6699726022370081141}
+  renderer: {fileID: 2616370444602553321}
   pcam: {fileID: 0}
   powerMagnitude: 5
   boostPowerMultiplier: 10

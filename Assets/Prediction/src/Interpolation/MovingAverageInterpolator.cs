@@ -7,18 +7,19 @@ namespace Prediction.Interpolation
 {
     public class MovingAverageInterpolator: VisualsInterpolationsProvider
     {
-        RingBuffer<PhysicsStateRecord> buffer = new RingBuffer<PhysicsStateRecord>(3);
-        RingBuffer<PhysicsStateRecord> averagedBuffer = new RingBuffer<PhysicsStateRecord>(3);
+        RingBuffer<PhysicsStateRecord> buffer = new RingBuffer<PhysicsStateRecord>(50);
+        public RingBuffer<PhysicsStateRecord> averagedBuffer = new RingBuffer<PhysicsStateRecord>(3);
 
         private Transform target;
         private double time = 0;
         private double tickInterval = Time.fixedDeltaTime;
         private bool interpStarted = false;
-        public int startAfterTicks = 3;
+        
+        public int slidingWindowTickSize = 8;
+        public int startAfterBfrTicks = 2;
         
         public void Update(float deltaTime)
         {
-            Debug.Log($"[MovingAverageInterpolator][Update] canInterp:{CanStartInterpolation()} average:{averagedBuffer.GetFill()} buff:{buffer.GetFill()}");
             if (!CanStartInterpolation())
                 return;
             
@@ -54,7 +55,7 @@ namespace Prediction.Interpolation
 
         bool CanStartInterpolation()
         {
-            return averagedBuffer.GetFill() >= startAfterTicks;
+            return averagedBuffer.GetFill() >= startAfterBfrTicks;
         }
         
         PhysicsStateRecord GetInterpolationStartState()
@@ -86,7 +87,6 @@ namespace Prediction.Interpolation
         
         public void Add(PhysicsStateRecord record)
         {
-            Debug.Log($"[MovingAverageInterpolator][Add] add:{record} fill:{buffer.GetFill()}");
             buffer.Add(record);
             //TODO: implement a configurable type or average here   
             averagedBuffer.Add(GetNextProcessedState());
@@ -94,29 +94,40 @@ namespace Prediction.Interpolation
 
         PhysicsStateRecord GetNextProcessedState()
         {
-            int index = buffer.GetEndIndex();
             PhysicsStateRecord psr = new PhysicsStateRecord();
             psr.tickId = buffer.GetEnd().tickId;
             
-            for (int i = 0; i < startAfterTicks; ++i)
+            if (buffer.GetFill() < slidingWindowTickSize)
             {
-                PhysicsStateRecord r = buffer.Get(index);
-                psr.position += r.position;
+                for (int i = buffer.GetStartIndex(); i < buffer.GetEndIndex(); ++i)
+                {
+                    PhysicsStateRecord b = buffer.Get(i);
+                    psr.position += b.position;
+                }
+                psr.position /= buffer.GetFill();
+                return psr;
+            }
+            
+            int index = buffer.GetEndIndex();
+            for (int i = 0; i < slidingWindowTickSize; ++i)
+            {
                 index--;
                 if (index < 0)
                 {
                     index = buffer.GetCapacity() - 1;
                 }
+                
+                PhysicsStateRecord r = buffer.Get(index);
+                psr.position += r.position;
             }
             
-            psr.position /= startAfterTicks;
+            psr.position /= slidingWindowTickSize;
             return psr;
         }
 
         public void SetInterpolationTarget(Transform t)
         {
             target = t;
-            Debug.Log($"[MovingAverageInterpolator][SetInterpolationTarget] set:{t}");
         }
     }
 }
