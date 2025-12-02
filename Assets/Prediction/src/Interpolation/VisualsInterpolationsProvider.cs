@@ -5,8 +5,8 @@ namespace Prediction.Interpolation
 {
     public interface VisualsInterpolationsProvider
     {
-        void Update();
-        void Add(uint localTickId, PhysicsStateRecord record);
+        void Update(float deltaTime);
+        void Add(PhysicsStateRecord record);
         void SetInterpolationTarget(Transform t);
     }
 }

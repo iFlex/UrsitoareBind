@@ -31,7 +31,7 @@ namespace Prediction
         //TODO: make visible for testing in tests assembly
         public TickIndexedBuffer<PhysicsStateRecord> serverStateBuffer;
         //TODO: proper wire in...
-        public VisualsInterpolationsProvider interpolationsProvider = new MirrorSnapshotInterpolationBridge();
+        public VisualsInterpolationsProvider interpolationsProvider;
             
         public uint totalTicks = 0;
         public uint totalResimulationSteps = 0;
@@ -42,6 +42,7 @@ namespace Prediction
         
         public bool snapOnSimSkip = false;
         public bool protectFromOversimulation = false;
+        public bool isControlled = false;
         
         public ClientPredictedEntity(int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -117,6 +118,11 @@ namespace Prediction
             PhysicsStateRecord stateData = localStateBuffer.Get((int)tickId);
             //NOTE: this samples the physics state of the predicted entity and stores it in the localStateBuffer as a side effect.
             PopulatePhysicsStateRecord(tickId, stateData);
+            if (isControlled)
+            {
+                interpolationsProvider?.Add(stateData);
+            }
+            newStateReached.Dispatch(true);
         }
 
         bool AddServerState(uint lastAppliedTick, PhysicsStateRecord serverRecord)
@@ -133,7 +139,10 @@ namespace Prediction
             if (AddServerState(lastAppliedFollowerTick, lastArrivedServerState))
             {
                 //TODO: will this work correctly with tickId being always the same as the server's?
-                interpolationsProvider?.Add(lastArrivedServerState.tickId, lastArrivedServerState);
+                if (!isControlled)
+                {
+                    interpolationsProvider?.Add(lastArrivedServerState);
+                }
             }
             SnapTo(serverStateBuffer.GetEnd());
             lastAppliedFollowerTick = serverStateBuffer.GetEndTick();
@@ -144,7 +153,7 @@ namespace Prediction
             //Debug.Log($"[Prediction][BufferServerTick] tickId:{latestServerState.tickId}");
             if (AddServerState(lastAppliedTick, serverState))
             {
-                interpolationsProvider?.Add(lastAppliedTick, serverState);
+                //interpolationsProvider?.Add(serverState);
                 //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
                 if (lastAppliedTick < serverState.tickId)
                     return;
@@ -267,7 +276,8 @@ namespace Prediction
         {
             return totalTicks - serverStateBuffer.GetEndTick();
         }
-        
+
+        public SafeEventDispatcher<bool> newStateReached = new();
         public SafeEventDispatcher<bool> predictionAcceptable = new();
         public SafeEventDispatcher<bool> resimulation = new();
         public SafeEventDispatcher<bool> resimulationStep = new();

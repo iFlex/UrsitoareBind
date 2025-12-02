@@ -143,6 +143,11 @@ namespace DefaultNamespace
                     serverText.text += $"id:{pair.Value} skipped:{pair.Key.ticksWithoutInput} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps}\n";
                 }
             }
+
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                PredictedEntityVisuals.SHOW_DBG = !PredictedEntityVisuals.SHOW_DBG;
+            }
         }
         
         [Command(requiresAuthority = false, channel = Channels.Unreliable)]

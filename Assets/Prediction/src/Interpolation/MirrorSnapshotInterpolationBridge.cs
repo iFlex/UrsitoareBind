@@ -37,7 +37,7 @@ namespace Prediction.Interpolation
             deliveryTimeEma = new ExponentialMovingAverage(50 * 2);
         }
         
-        public void Update()
+        public void Update(float deltaTime)
         {
             if (snapshots.Count == 0)
             {
@@ -69,9 +69,9 @@ namespace Prediction.Interpolation
             Debug.Log($"[MirrorSnapshotInterpolationBridge][update] from:{fromSnapshot.position} toSnapshot:{toSnapshot.position} t:{t}");
         }
         
-        public void Add(uint localTickId, PhysicsStateRecord record)
+        public void Add(PhysicsStateRecord record)
         {
-            Debug.Log($"[MirrorSnapshotInterpolationBridge][Add] time:{NetworkTime.localTime} srvTime:{record.tmpServerTime} record:{record}");
+            //Debug.Log($"[MirrorSnapshotInterpolationBridge][Add] time:{NetworkTime.localTime} srvTime:{record.tmpServerTime} record:{record}");
 
             //TODO: ALLOCS...?
             var snap = new TransformSnapshot(

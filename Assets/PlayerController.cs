@@ -47,13 +47,14 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
     {
         clientPredictedEntity = new ClientPredictedEntity(30, rb, gameObject, new PredictableControllableComponent[1]{this}, new PredictableComponent[1]{this});
         clientPredictedEntity.gameObject = gameObject;
-        pev.visualsInterpolationsProvider = new MirrorSnapshotInterpolationBridge();
+        clientPredictedEntity.interpolationsProvider = new MovingAverageInterpolator();
         pev.SetClientPredictedEntity(clientPredictedEntity);
     }
 
     public override void OnStartAuthority()
     {
-        SetCamera(SingletonUtils.instance.camera);
+        clientPredictedEntity.isControlled = true;
+        SetCamera(SingletonUtils.instance.povCam);
     }
 
     private void Update()
@@ -92,13 +93,13 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
         Vector3 input = Vector3.zero;
         if (Input.GetKey(KeyCode.UpArrow))
         {
-            input += pcam.transform.forward;
-            //input += pcam.transform.up;
+            //input += pcam.transform.forward;
+            input += pcam.transform.up;
         }
         if (Input.GetKey(KeyCode.DownArrow))
         {
-            input += pcam.transform.forward * -1;
-            //input += pcam.transform.up * -1;
+            //input += pcam.transform.forward * -1;
+            input += pcam.transform.up * -1;
         }
         if (Input.GetKey(KeyCode.LeftArrow))
         {
