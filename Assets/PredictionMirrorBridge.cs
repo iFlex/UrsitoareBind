@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Mirror;
 using Prediction;
 using Prediction.data;
@@ -13,13 +14,16 @@ namespace DefaultNamespace
         //TODO: configurable fake server latency in tick counts to test high ping scenarios
         public static bool MSG_DEBUG = false;
         public static bool PRED_DEBUG = false;
-        
+
+        public NetworkManager manager;
         [SerializeField] PredictionManager predictionManager;
         [SerializeField] private TMPro.TMP_Text serverText;
         
         public bool reliable = false;
         public int resimCounter = 0;
-
+        private bool setSendRate = false;
+        public int sendRateMultiplier = 1;
+        
         private DebugResimChecker resimulationDecider = new DebugResimChecker();
         private void Awake()
         {
@@ -31,6 +35,14 @@ namespace DefaultNamespace
         {
             PlayerController.spawned.RemoveEventListener(OnSpawned);
             PlayerController.despawned.RemoveEventListener(OnDespawned);
+        }
+
+        private void FixedUpdate()
+        {
+            if (!setSendRate)
+            {
+                manager.sendRate = Mathf.CeilToInt(1f / Time.fixedDeltaTime) * sendRateMultiplier;   
+            }
         }
 
         private SimplePhysicsControllerKinematic ktl;

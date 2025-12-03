@@ -1367,10 +1367,12 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  manager: {fileID: 68771395}
   predictionManager: {fileID: 90500650}
   serverText: {fileID: 445369649}
   reliable: 0
   resimCounter: 0
+  sendRateMultiplier: 1
 --- !u!114 &1306188066
 MonoBehaviour:
   m_ObjectHideFlags: 0

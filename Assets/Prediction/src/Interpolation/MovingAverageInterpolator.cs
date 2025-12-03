@@ -15,6 +15,7 @@ namespace Prediction.Interpolation
         private double tickInterval = Time.fixedDeltaTime;
         private bool interpStarted = false;
         
+        //TODO: adaptive window size: depeding on server lateness
         public int slidingWindowTickSize = 8;
         public int startAfterBfrTicks = 2;
         

@@ -8,6 +8,7 @@ public class PlayerMirrorController : NetworkBehaviour
     public Rigidbody rigidbody;
     public PredictedRigidbody prb;
     public CinemachineCamera pcam;
+    public NetworkManager manager;
     
     Vector3 input = Vector3.zero;
     private bool boosting = false;
