@@ -59,7 +59,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
     {
         if (!isServer || isOwned)
         {
-            clientPredictedEntity.isControlled = true;
+            clientPredictedEntity.isControlledLocally = true;
             SingletonUtils.localCPE = clientPredictedEntity;
         }
         
@@ -98,7 +98,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
 
     public abstract void SampleInput(PredictionInputRecord input);
 
-    public abstract bool ValidateState(uint tickId, PredictionInputRecord input);
+    public abstract bool ValidateState(float deltaTime, PredictionInputRecord input);
 
     public abstract void LoadInput(PredictionInputRecord input);
 }

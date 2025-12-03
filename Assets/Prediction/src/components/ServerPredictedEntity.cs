@@ -17,12 +17,19 @@ namespace Prediction
         private uint waitTicksBeforeSimStart;
         
         TickIndexedBuffer<PredictionInputRecord> inputQueue;
+        
+        //NOTE: Possible to buffer user inputs if needed to try and ensure a closer to client simulation on the server at the
+        //cost of delaying the server behind the client by a small margin. The more you buffer, the more the server is delayed, the less reliable is the client image.
+        
+        //TODO: experiment with different settings here, see if it helps smooth things over at higher lag values.
         public int bufferFullThreshold = 0; //Number of ticks to buffer before starting to send out the updates
         public int bufferRefillThreshold = 0;
         private bool bufferFilling = true;
         public bool useBuffering = true;
 
+        public uint invalidInputs = 0;
         public uint ticksWithoutInput = 0;
+        public uint lateTickCount = 0;
         
         public ServerPredictedEntity(int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -47,8 +54,15 @@ namespace Prediction
                 {
                     inputJumps++;
                 }
-                //TODO: validate input, should happen in LoadInput
-                LoadInput(nextInput);
+                
+                if (ValidateState(TickDeltaToTimeDelta(delta), nextInput))
+                {
+                    LoadInput(nextInput);
+                }
+                else
+                {
+                    invalidInputs++;
+                }
             }
             else
             {
@@ -60,6 +74,12 @@ namespace Prediction
             return serverStateBfr;
         }
 
+        public float TickDeltaToTimeDelta(int delta)
+        {
+            //TODO: have fixedDeltaTime be configurable, pass that in on instantiation
+            return delta * Time.fixedDeltaTime;
+        }
+        
         public void BufferClientTick(uint clientTickId, PredictionInputRecord inputRecord)
         {
             if (inputQueue.GetFill() == 0)
@@ -73,13 +93,8 @@ namespace Prediction
             }
             else
             {
-                //TODO: notify late update dropped
+                lateTickCount++;
             }
-        }
-        
-        public bool ValidateState(uint tickId, PredictionInputRecord input)
-        {
-            throw new System.NotImplementedException();
         }
         
         public void ResetClientState()
@@ -123,6 +138,7 @@ namespace Prediction
 
         //TODO: unit test the buffering
         //TODO: careful to ensure old data is purged constantly, otherwise it will impact the buffering
+        //(so far the data is purged, but if we ever implement skipping ahead, then the skipped data needs to be removed)
         bool CanUseBuffer()
         {
             if (!useBuffering)

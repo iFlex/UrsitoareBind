@@ -14,7 +14,6 @@ public class PlayerCarController : PlayerController
     public override void ApplyForces()
     {
         Vector3 torque = steer * steerPowerMagnitude * Vector3.up;
-        Debug.Log($"APPLY t:{throttle} boost:{isBoosting} s:{steer} str:{torque}");
         rb.AddForce(throttle * powerMagnitude * (isBoosting ? boostPowerMultiplier : 1) * rb.transform.forward);
         rb.AddTorque(torque);
     }
@@ -57,7 +56,7 @@ public class PlayerCarController : PlayerController
         data.WriteNextBinary(Input.GetKey(KeyCode.Z));
     }
 
-    public override bool ValidateState(uint tickId, PredictionInputRecord input)
+    public override bool ValidateState(float deltaTime, PredictionInputRecord input)
     {
         return true;
     }

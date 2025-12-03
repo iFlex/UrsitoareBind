@@ -36,6 +36,18 @@ namespace Prediction
             stateData.velocity = rigidbody.linearVelocity;
             stateData.angularVelocity = rigidbody.angularVelocity;
         }
+
+        public bool ValidateState(float deltaTime, PredictionInputRecord input)
+        {
+            for (int i = 0; i < controllablePredictionContributors.Length; ++i)
+            {
+                if (!controllablePredictionContributors[i].ValidateState(deltaTime, input))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
         
         public void LoadInput(PredictionInputRecord input)
         {

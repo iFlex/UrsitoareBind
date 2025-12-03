@@ -1,5 +1,4 @@
 ﻿using Prediction.data;
-using Prediction.Interpolation;
 using UnityEngine;
 
 namespace Prediction
@@ -74,29 +73,7 @@ namespace Prediction
             if (!follow || !visualsDetached)
                 return;
             
-            //TODO: proper integration
-            if (clientPredictedEntity.interpolationsProvider != null)
-            {
-                clientPredictedEntity.interpolationsProvider.Update(Time.deltaTime);
-            }
-            //else
-            /*
-            {
-                float lerpAmount = 0f;
-                if (targetTime < currentTimeStep)
-                {
-                    lerpAmount = 1;
-                    Debug.Log("PREDICTION_LAGGING_BEHIND");
-                }
-                else
-                {
-                    lerpAmount = ((float)(targetTime - currentTimeStep)) / Time.fixedDeltaTime;
-                }
-                
-                visualsEntity.transform.position = Vector3.Lerp(visualsEntity.transform.position, follow.transform.position, lerpAmount);
-                visualsEntity.transform.rotation = Quaternion.Lerp(visualsEntity.transform.rotation, follow.transform.rotation, lerpAmount);
-            }
-            */
+            clientPredictedEntity.interpolationsProvider.Update(Time.deltaTime);
         }
     }
 }

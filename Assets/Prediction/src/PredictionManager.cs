@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace Prediction
 {
+    //TODO: decoule the implementation from Time.fixedDeltaTime, have it be configurable
     public class PredictionManager: MonoBehaviour
     {
         [SerializeField] private GameObject localGO;
@@ -17,7 +18,6 @@ namespace Prediction
         public Dictionary<ServerPredictedEntity, uint> _serverEntityToId = new Dictionary<ServerPredictedEntity, uint>();
         private Dictionary<ServerPredictedEntity, int> _entityToOwnerConnId = new Dictionary<ServerPredictedEntity, int>();
         private Dictionary<int, ServerPredictedEntity> _connIdToEntity = new Dictionary<int, ServerPredictedEntity>();
-        
         private Dictionary<uint, ClientPredictedEntity> _nonControlledPredictedEntities = new Dictionary<uint, ClientPredictedEntity>();
         
         private bool isClient;

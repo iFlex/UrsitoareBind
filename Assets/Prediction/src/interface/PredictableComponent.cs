@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-
-namespace Prediction
+﻿namespace Prediction
 {
     //All components that apply physics forces to the Rigidbody must implement this interface to support prediction.
     public interface PredictableComponent

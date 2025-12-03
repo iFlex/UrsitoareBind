@@ -30,7 +30,7 @@ namespace Prediction.Tests.mocks
             input.WriteNextScalar(inputVector.z);
         }
 
-        public bool ValidateState(uint tickId, PredictionInputRecord input)
+        public bool ValidateState(float deltaTime, PredictionInputRecord input)
         {
             return true;
         }

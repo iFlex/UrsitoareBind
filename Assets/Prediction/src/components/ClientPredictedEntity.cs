@@ -9,6 +9,7 @@ using UnityEngine;
 namespace Prediction
 {
     //TODO: document in readme
+    //TODO: add ability to switch from locally controlled to not locally controlled
     public class ClientPredictedEntity : AbstractPredictedEntity
     {
         //STATE TRACKING
@@ -30,7 +31,7 @@ namespace Prediction
         
         //TODO: make visible for testing in tests assembly
         public TickIndexedBuffer<PhysicsStateRecord> serverStateBuffer;
-        //TODO: proper wire in...
+        //TODO: proper wire in...?
         public VisualsInterpolationsProvider interpolationsProvider;
             
         public uint totalTicks = 0;
@@ -42,7 +43,7 @@ namespace Prediction
         
         public bool snapOnSimSkip = false;
         public bool protectFromOversimulation = false;
-        public bool isControlled = false;
+        public bool isControlledLocally = false;
         
         public ClientPredictedEntity(int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -118,7 +119,7 @@ namespace Prediction
             PhysicsStateRecord stateData = localStateBuffer.Get((int)tickId);
             //NOTE: this samples the physics state of the predicted entity and stores it in the localStateBuffer as a side effect.
             PopulatePhysicsStateRecord(tickId, stateData);
-            if (isControlled)
+            if (isControlledLocally)
             {
                 interpolationsProvider?.Add(stateData);
             }
@@ -134,15 +135,13 @@ namespace Prediction
 
         public void BufferFollowerServerTick(PhysicsStateRecord lastArrivedServerState)
         {
-            //TODO: debug gate
-            //Debug.Log($"[ClientPredictedEntity][BufferFollowerServerTick] state:{lastArrivedServerState}");
             if (AddServerState(lastAppliedFollowerTick, lastArrivedServerState))
             {
-                //TODO: will this work correctly with tickId being always the same as the server's?
-                if (!isControlled)
+                if (!isControlledLocally)
                 {
                     interpolationsProvider?.Add(lastArrivedServerState);
                 }
+                //TODO: snapshot interpolation when not locally controlled
             }
             SnapTo(serverStateBuffer.GetEnd());
             lastAppliedFollowerTick = serverStateBuffer.GetEndTick();
@@ -150,10 +149,8 @@ namespace Prediction
         
         public void BufferServerTick(uint lastAppliedTick, PhysicsStateRecord serverState)
         {
-            //Debug.Log($"[Prediction][BufferServerTick] tickId:{latestServerState.tickId}");
             if (AddServerState(lastAppliedTick, serverState))
             {
-                //interpolationsProvider?.Add(serverState);
                 //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
                 if (lastAppliedTick < serverState.tickId)
                     return;
@@ -177,12 +174,11 @@ namespace Prediction
                 }
                 //TODO: consider a decision where we need to pause simulation on client to let server catch up...
             }
-            //Debug.Log($"[ClientPredictedEntity][BufferServerTick] server_delay:{lastAppliedTick - serverStateBuffer.GetEndTick()} state:{latestServerState}");
         }
 
         void Resimulate(uint lastAppliedTick, PhysicsStateRecord local, PhysicsStateRecord server)
         {
-            if (!protectFromOversimulation || CanResiumlate())
+            if (CanResiumlate())
             {
                 ResimulateFrom(local.tickId, lastAppliedTick, server);
             }
@@ -263,8 +259,8 @@ namespace Prediction
         
         bool CanResiumlate()
         {
-            //return () < maxAllowedAvgResimPerTick;
-            return totalResimulationStepsOverbudget == 0;
+            //return !protectFromOversimulation || () < maxAllowedAvgResimPerTick;
+            return !protectFromOversimulation || totalResimulationStepsOverbudget == 0;
         }
 
         public uint GetResimulationOverbudget()

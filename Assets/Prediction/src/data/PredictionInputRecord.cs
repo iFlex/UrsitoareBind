@@ -2,7 +2,7 @@
 {
     public class PredictionInputRecord
     {
-        //TODO: check what i need to do for mirror to serialize
+        //TODO: check what i need to do for mirror to serialize as protected or private fields?
         public float[] scalarInput;
         public bool[] binaryInput;
 
