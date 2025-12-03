@@ -243,5 +243,6 @@ MonoBehaviour:
   rigidbody: {fileID: 1526699890830082510}
   prb: {fileID: -5126387533013195633}
   pcam: {fileID: 0}
+  manager: {fileID: 0}
   powerMagnitude: 5
   boostPowerMultiplier: 10

@@ -7,18 +7,15 @@ using Prediction.Interpolation;
 using Unity.Cinemachine;
 using UnityEngine;
 
-public class PlayerController : NetworkBehaviour, PredictableComponent, PredictableControllableComponent
+public abstract class PlayerController : NetworkBehaviour, PredictableComponent, PredictableControllableComponent
 {
-    [SerializeField] private Rigidbody rb;
-    [SerializeField] private PredictedEntityVisuals pev;
-    [SerializeField] private Renderer renderer;
+    [SerializeField] protected Rigidbody rb;
+    [SerializeField] protected PredictedEntityVisuals pev;
+    [SerializeField] protected Renderer renderer;
     
     public ClientPredictedEntity clientPredictedEntity;
     public ServerPredictedEntity serverPredictedEntity;
     public CinemachineCamera pcam;
-    
-    public float powerMagnitude = 1f;
-    public float boostPowerMultiplier = 3f;
     
     public static SafeEventDispatcher<PlayerController> spawned = new SafeEventDispatcher<PlayerController>();
     public static SafeEventDispatcher<PlayerController> despawned = new SafeEventDispatcher<PlayerController>();
@@ -70,7 +67,7 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
         Customize();
     }
 
-    void ConfigurePrediction(bool detachVisuals)
+    protected virtual void ConfigurePrediction(bool detachVisuals)
     {
         clientPredictedEntity = new ClientPredictedEntity(30, rb, gameObject, new PredictableControllableComponent[1]{this}, new PredictableComponent[1]{this});
         clientPredictedEntity.gameObject = gameObject;
@@ -92,63 +89,16 @@ public class PlayerController : NetworkBehaviour, PredictableComponent, Predicta
             SingletonUtils.instance.clientText.text = $"Tick:{clientPredictedEntity.totalTicks}\n ServerDelay:{clientPredictedEntity.GetServerDelay()}\n Resimulations:{clientPredictedEntity.totalResimulations}\n AvgResimLen:{clientPredictedEntity.GetAverageResimPerTick()} TotalResimSteps:{clientPredictedEntity.totalResimulationSteps}\n Skips:{clientPredictedEntity.totalSimulationSkips}\n Velo:{clientPredictedEntity.rigidbody.linearVelocity.magnitude}\n DistThres:{SingletonUtils.CURRENT_DECIDER.distResimThreshold}\n SmoothWindow:{SingletonUtils.localVisInterpolator.slidingWindowTickSize}";
         }
     }
+    
+    public abstract void ApplyForces();
 
-    private Vector3 inputDir;
-    private bool isBoosting;
-    public void ApplyForces()
-    {
-        rb.AddForce(powerMagnitude * (isBoosting ? boostPowerMultiplier : 1) * inputDir.normalized);
-    }
+    public abstract int GetFloatInputCount();
 
-    public int GetFloatInputCount()
-    {
-        return 3;
-    }
+    public abstract int GetBinaryInputCount();
 
-    public int GetBinaryInputCount()
-    {
-        return 1;
-    }
+    public abstract void SampleInput(PredictionInputRecord input);
 
-    public void SampleInput(PredictionInputRecord data)
-    {
-        Vector3 input = Vector3.zero;
-        if (Input.GetKey(KeyCode.UpArrow))
-        {
-            //input += pcam.transform.forward;
-            input += pcam.transform.up;
-        }
-        if (Input.GetKey(KeyCode.DownArrow))
-        {
-            //input += pcam.transform.forward * -1;
-            input += pcam.transform.up * -1;
-        }
-        if (Input.GetKey(KeyCode.LeftArrow))
-        {
-            input += pcam.transform.right * -1;
-        }
-        if (Input.GetKey(KeyCode.RightArrow))
-        {
-            input += pcam.transform.right;
-        }
-        input = input.normalized;
-        
-        data.WriteReset();
-        data.WriteNextScalar(input.x);
-        data.WriteNextScalar(input.y);
-        data.WriteNextScalar(input.z);
-        data.WriteNextBinary(Input.GetKey(KeyCode.Z));
-    }
+    public abstract bool ValidateState(uint tickId, PredictionInputRecord input);
 
-    public bool ValidateState(uint tickId, PredictionInputRecord input)
-    {
-        return true;
-    }
-
-    public void LoadInput(PredictionInputRecord input)
-    {
-        input.ReadReset();
-        inputDir = new Vector3(input.ReadNextScalar(), input.ReadNextScalar(), input.ReadNextScalar());
-        isBoosting = input.ReadNextBool();
-    }
+    public abstract void LoadInput(PredictionInputRecord input);
 }

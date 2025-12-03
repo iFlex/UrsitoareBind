@@ -1,4 +1,5 @@
-﻿using Mirror;
+﻿using System;
+using Mirror;
 using Prediction.data;
 using Prediction.utils;
 using UnityEngine;
@@ -7,7 +8,7 @@ namespace Prediction.Interpolation
 {
     public class MovingAverageInterpolator: VisualsInterpolationsProvider
     {
-        RingBuffer<PhysicsStateRecord> buffer = new RingBuffer<PhysicsStateRecord>(50);
+        RingBuffer<PhysicsStateRecord> buffer = new RingBuffer<PhysicsStateRecord>(200);
         public RingBuffer<PhysicsStateRecord> averagedBuffer = new RingBuffer<PhysicsStateRecord>(3);
 
         private Transform target;
@@ -15,15 +16,42 @@ namespace Prediction.Interpolation
         private double tickInterval = Time.fixedDeltaTime;
         private bool interpStarted = false;
         
-        //TODO: adaptive window size: depeding on server lateness
-        public int slidingWindowTickSize = 8;
+        public int slidingWindowTickSize = 6;
         public int startAfterBfrTicks = 2;
+
+        public float MinVisualDelay = 0.5f;
+        public uint minVisualTickDelay = 2;
+        public bool autosizeWindow = false;
+        public Func<uint> GetServerTickLag;
+
+        public MovingAverageInterpolator()
+        {
+            minVisualTickDelay = (uint) Mathf.CeilToInt(MinVisualDelay / Time.fixedDeltaTime);
+        }
+        
+        public void ConfigureWindowAutosizing(Func<uint> serverLatencyFetcher)
+        {
+            if (serverLatencyFetcher == null)
+            {
+                autosizeWindow = false;
+            }
+            else
+            {
+                autosizeWindow = true;
+                GetServerTickLag = serverLatencyFetcher;
+            }
+        }
         
         public void Update(float deltaTime)
         {
             if (!CanStartInterpolation())
                 return;
             
+            if (autosizeWindow)
+            {
+                uint serverTickLag = GetServerTickLag();
+                slidingWindowTickSize = (int) Math.Max(minVisualTickDelay, serverTickLag / 2);
+            }
             time += deltaTime;
             
             float interpolationProgress = 1f;
@@ -46,7 +74,8 @@ namespace Prediction.Interpolation
         void ApplyState(PhysicsStateRecord psr, float t)
         {
             target.position = Vector3.Lerp(target.position, psr.position, t);
-            //TODO: rotation and the other stuff
+            target.rotation = psr.rotation;
+            //Note, no simulated rigid body for the visuals, no need to look at the physics data.
         }
 
         double GetTime(PhysicsStateRecord record)
@@ -93,6 +122,30 @@ namespace Prediction.Interpolation
             averagedBuffer.Add(GetNextProcessedState());
         }
 
+        void AddToWindow(PhysicsStateRecord accumulator, PhysicsStateRecord newItem)
+        {
+            accumulator.position += newItem.position;
+            accumulator.velocity += newItem.velocity;
+            accumulator.angularVelocity += newItem.angularVelocity;
+            accumulator.rotation = new Quaternion(
+                accumulator.rotation.x + newItem.rotation.x,
+                accumulator.rotation.y + newItem.rotation.y,
+                accumulator.rotation.z + newItem.rotation.z,
+                accumulator.rotation.w + newItem.rotation.w);
+        }
+
+        void FinalizeWindow(PhysicsStateRecord accumulator, int count)
+        {
+            accumulator.position /= count;
+            accumulator.velocity /= count;
+            accumulator.angularVelocity /= count;
+            accumulator.rotation = new Quaternion(
+                accumulator.rotation.x / count,
+                accumulator.rotation.y / count,
+                accumulator.rotation.z / count,
+                accumulator.rotation.w / count);
+        }
+        
         PhysicsStateRecord GetNextProcessedState()
         {
             PhysicsStateRecord psr = new PhysicsStateRecord();
@@ -102,10 +155,9 @@ namespace Prediction.Interpolation
             {
                 for (int i = buffer.GetStartIndex(); i < buffer.GetEndIndex(); ++i)
                 {
-                    PhysicsStateRecord b = buffer.Get(i);
-                    psr.position += b.position;
+                    AddToWindow(psr, buffer.Get(i));
                 }
-                psr.position /= buffer.GetFill();
+                FinalizeWindow(psr, buffer.GetFill());
                 return psr;
             }
             
@@ -118,11 +170,9 @@ namespace Prediction.Interpolation
                     index = buffer.GetCapacity() - 1;
                 }
                 
-                PhysicsStateRecord r = buffer.Get(index);
-                psr.position += r.position;
+                AddToWindow(psr, buffer.Get(index));
             }
-            
-            psr.position /= slidingWindowTickSize;
+            FinalizeWindow(psr, slidingWindowTickSize);
             return psr;
         }
 

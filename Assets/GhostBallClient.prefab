@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 5005187678640633624}
   - component: {fileID: 1520397735395552125}
   m_Layer: 0
-  m_Name: GhostClient
+  m_Name: GhostBallClient
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
