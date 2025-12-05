@@ -54,7 +54,7 @@ public class PlayerBallController : PlayerController
         data.WriteNextBinary(Input.GetKey(KeyCode.Z));
     }
 
-    public override bool ValidateState(float deltaTime, PredictionInputRecord input)
+    public override bool ValidateInput(float deltaTime, PredictionInputRecord input)
     {
         return true;
     }

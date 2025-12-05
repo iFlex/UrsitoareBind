@@ -11,21 +11,24 @@ namespace Prediction.Interpolation
         RingBuffer<PhysicsStateRecord> buffer = new RingBuffer<PhysicsStateRecord>(200);
         public RingBuffer<PhysicsStateRecord> averagedBuffer = new RingBuffer<PhysicsStateRecord>(3);
 
+        //TODO: eliminate the need for a ref here
         private Transform target;
-        private double time = 0;
         private double tickInterval = Time.fixedDeltaTime;
+        
+        private double time = 0;
         private bool interpStarted = false;
+        private uint smoothingTick = 0;
+        
         
         public int slidingWindowTickSize = 6;
         public int startAfterBfrTicks = 2;
-
         public float MinVisualDelay = 0.5f;
         public uint minVisualTickDelay = 2;
         public bool autosizeWindow = false;
         public Func<uint> GetServerTickLag;
+        
         public int debugCounterLocal;
         
-        private uint smoothingTick = 0;
         
         public MovingAverageInterpolator()
         {
@@ -88,7 +91,7 @@ namespace Prediction.Interpolation
         void ApplyState(PhysicsStateRecord psr, float t)
         {
             target.position = Vector3.Lerp(target.position, psr.position, t);
-            target.rotation = psr.rotation;
+            target.rotation = Quaternion.Lerp(target.rotation, psr.rotation, t);
             //Note, no simulated rigid body for the visuals, no need to look at the physics data.
         }
 
@@ -194,6 +197,15 @@ namespace Prediction.Interpolation
         public void SetInterpolationTarget(Transform t)
         {
             target = t;
+        }
+
+        public void Reset()
+        {
+            buffer.Clear();
+            averagedBuffer.Clear();
+            time = 0;
+            interpStarted = false;
+            smoothingTick = 0;
         }
     }
 }

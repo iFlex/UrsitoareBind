@@ -26,7 +26,8 @@ namespace Prediction
         public int bufferRefillThreshold = 0;
         private bool bufferFilling = true;
         public bool useBuffering = true;
-
+        
+        //STATS
         public uint invalidInputs = 0;
         public uint ticksWithoutInput = 0;
         public uint lateTickCount = 0;
@@ -158,6 +159,20 @@ namespace Prediction
         public uint BufferSize()
         {
             return inputQueue.GetRange();
+        }
+        
+        //NOTE: call this when you change the owner of the object
+        public void Reset()
+        {
+            inputQueue.Clear();
+            bufferFilling = true;
+            tickId = 0;
+            bufferFilling = true;
+            useBuffering = true;
+        
+            invalidInputs = 0;
+            ticksWithoutInput = 0;
+            lateTickCount = 0;
         }
         
         public SafeEventDispatcher<bool> simulationStarted = new();

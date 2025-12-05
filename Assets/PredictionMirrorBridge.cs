@@ -4,6 +4,7 @@ using Mirror;
 using Prediction;
 using Prediction.data;
 using Prediction.Simulation;
+using Prediction.wrappers;
 using UnityEngine;
 
 namespace DefaultNamespace
@@ -12,12 +13,15 @@ namespace DefaultNamespace
     public class PredictionMirrorBridge : NetworkBehaviour
     {
         //TODO: configurable fake server latency in tick counts to test high ping scenarios
+        //TODO: track owner connection of client
+        
         public static bool MSG_DEBUG = false;
         public static bool PRED_DEBUG = false;
 
         public NetworkManager manager;
         [SerializeField] PredictionManager predictionManager;
         [SerializeField] private TMPro.TMP_Text serverText;
+        private Dictionary<int, PredictedMonoBehaviour> ownership = new Dictionary<int, PredictedMonoBehaviour>();
         
         public bool reliable = false;
         public int resimCounter = 0;
@@ -78,7 +82,7 @@ namespace DefaultNamespace
             
             if (isServer)
             {
-                predictionManager.serverStateSender = (entityNetId, data) =>
+                predictionManager.serverStateSender = (entityNetId, serverTick, data) =>
                 {
                     if (MSG_DEBUG)
                         Debug.Log($"[PredictionMirrorBridge][clientStateSender] SEND server_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
@@ -89,6 +93,7 @@ namespace DefaultNamespace
                     else
                     {
                         ReportFromServerUnreliable(entityNetId, data);
+                        //SendTargetedReportFromServerUnreliable(entityNetId, serverTick, data);
                     }
                 };
             }
@@ -100,6 +105,12 @@ namespace DefaultNamespace
             {
                 predictionManager.AddPredictedEntity(entity.netId, entity.serverPredictedEntity);   
                 predictionManager.SetEntityOwner(entity.serverPredictedEntity, entity.netIdentity.connectionToClient.connectionId);
+
+                if (!entity.isOwned)
+                {
+                    ownership[entity.netIdentity.connectionToClient.connectionId] = entity.predictedMono;   
+                    entity.predictedMono.Reset();
+                }
             }
             if (isClient && entity.clientPredictedEntity != null)
             {
@@ -178,6 +189,27 @@ namespace DefaultNamespace
             if (MSG_DEBUG)
                 Debug.Log($"[PredictionMirrorBridge][ReportToServer] Received client_report: tickId:{tickId} sender:{sender} data:{data}");
             predictionManager.OnClientStateReceived(sender.connectionId, tickId, data);
+        }
+
+        void SendTargetedReportFromServerUnreliable(uint entityNetId, uint serverTickId, PhysicsStateRecord data)
+        {
+            //TODO
+            //TODO: send to owner
+            //TargetedReportFromServerUnreliable
+            
+            //TODO: send to everyone else
+            data.tickId = serverTickId;
+            //TargetedReportFromServerUnreliable
+        }
+        
+        [TargetRpc(channel = Channels.Unreliable)]
+        void TargetedReportFromServerUnreliable(NetworkConnectionToClient receiver, uint entityNetId, PhysicsStateRecord data)
+        {
+            if (MSG_DEBUG)
+                Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
+            
+            data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
+            predictionManager.OnFollowerServerStateReceived(entityNetId, data);
         }
         
         [ClientRpc(channel = Channels.Unreliable)]

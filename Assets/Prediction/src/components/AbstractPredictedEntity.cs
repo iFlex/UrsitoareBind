@@ -41,7 +41,7 @@ namespace Prediction
         {
             for (int i = 0; i < controllablePredictionContributors.Length; ++i)
             {
-                if (!controllablePredictionContributors[i].ValidateState(deltaTime, input))
+                if (!controllablePredictionContributors[i].ValidateInput(deltaTime, input))
                 {
                     return false;
                 }

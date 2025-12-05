@@ -1,7 +1,6 @@
 ﻿using System;
 using Assets.Scripts.Systems.Events;
 using Prediction.data;
-using Prediction.Interpolation;
 using Prediction.Simulation;
 using Prediction.utils;
 using UnityEngine;
@@ -15,35 +14,32 @@ namespace Prediction
         //STATE TRACKING
         public uint maxAllowedAvgResimPerTick = 1;
         public GameObject gameObject;
-        
-        //TODO: make visible for testing in tests assembly
-        public RingBuffer<PredictionInputRecord> localInputBuffer;
-        //TODO: make visible for testing in tests assembly
-        public RingBuffer<PhysicsStateRecord> localStateBuffer;
-        
-        //This is used exclusively in follower mode (predicted entity not controlled by user).
-        private uint lastAppliedFollowerTick = 0;
-        
         Func<uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision>
             resimulationEligibilityCheckHook;
         Func<PhysicsStateRecord, PhysicsStateRecord, PredictionDecision> singleStateResimulationEligibilityHook;
         public PhysicsController physicsController;
         
+        //STATE
+        //TODO: make visible for testing in tests assembly
+        public RingBuffer<PredictionInputRecord> localInputBuffer;
+        //TODO: make visible for testing in tests assembly
+        public RingBuffer<PhysicsStateRecord> localStateBuffer;
         //TODO: make visible for testing in tests assembly
         public TickIndexedBuffer<PhysicsStateRecord> serverStateBuffer;
-        //TODO: proper wire in...?
-        public VisualsInterpolationsProvider interpolationsProvider;
-            
+        
+        //This is used exclusively in follower mode (predicted entity not controlled by user).
+        private uint lastAppliedFollowerTick = 0;
+        public bool snapOnSimSkip = false;
+        public bool protectFromOversimulation = false;
+        public bool isControlledLocally { get; private set; }
+
+        //STATS
         public uint totalTicks = 0;
         public uint totalResimulationSteps = 0;
         public uint totalResimulationStepsOverbudget = 0;
         public uint totalResimulations = 0;
         public uint totalSimulationSkips = 0;
         public uint totalDesyncToSnapCount = 0;
-        
-        public bool snapOnSimSkip = false;
-        public bool protectFromOversimulation = false;
-        public bool isControlledLocally = false;
         
         public ClientPredictedEntity(int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -121,9 +117,9 @@ namespace Prediction
             PopulatePhysicsStateRecord(tickId, stateData);
             if (isControlledLocally)
             {
-                interpolationsProvider?.Add(stateData);
+                newInterpolationStateReached.Dispatch(stateData);
             }
-            newStateReached.Dispatch(true);
+            newStateReached.Dispatch(stateData);
         }
 
         bool AddServerState(uint lastAppliedTick, PhysicsStateRecord serverRecord)
@@ -139,11 +135,10 @@ namespace Prediction
             {
                 if (!isControlledLocally)
                 {
-                    interpolationsProvider?.Add(lastArrivedServerState);
+                    newInterpolationStateReached.Dispatch(lastArrivedServerState);
                 }
-                //TODO: snapshot interpolation when not locally controlled
+                SnapTo(serverStateBuffer.GetEnd());
             }
-            SnapTo(serverStateBuffer.GetEnd());
             lastAppliedFollowerTick = serverStateBuffer.GetEndTick();
         }
         
@@ -273,7 +268,34 @@ namespace Prediction
             return totalTicks - serverStateBuffer.GetEndTick();
         }
 
-        public SafeEventDispatcher<bool> newStateReached = new();
+        public void SetControlledLocally(bool controlled)
+        {
+            Reset();
+            isControlledLocally = controlled;
+        }
+        
+        public void Reset()
+        {
+            localInputBuffer.Clear();
+            localStateBuffer.Clear();
+            serverStateBuffer.Clear();
+            lastAppliedFollowerTick = 0;
+            
+            //TODO: consider if this is needed? it probably is
+            //interpolationsProvider.Clear();
+            
+            totalTicks = 0;
+            totalResimulationSteps = 0;
+            totalResimulationStepsOverbudget = 0;
+            totalResimulations = 0;
+            totalSimulationSkips = 0;
+            totalDesyncToSnapCount = 0;
+        }
+        
+        //TODO: shouldn't need both
+        public SafeEventDispatcher<PhysicsStateRecord> newInterpolationStateReached = new();
+        public SafeEventDispatcher<PhysicsStateRecord> newStateReached = new();
+        
         public SafeEventDispatcher<bool> predictionAcceptable = new();
         public SafeEventDispatcher<bool> resimulation = new();
         public SafeEventDispatcher<bool> resimulationStep = new();

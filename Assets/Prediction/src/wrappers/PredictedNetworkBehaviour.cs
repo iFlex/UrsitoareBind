@@ -10,13 +10,20 @@ namespace Prediction.wrappers
         [SerializeField] private Rigidbody _rigidbody;
         [SerializeField] private PredictedEntityVisuals visuals;
         
-        private ClientPredictedEntity _clientPredictedEntity;
-        private ServerPredictedEntity _serverPredictedEntity;
+        public ClientPredictedEntity clientPredictedEntity { get; private set; }
+        public ServerPredictedEntity serverPredictedEntity { get; private set; }
         
         void Awake()
         {
             //TODO
             //TODO: use common methods instead of duplicating the code here...
+        }
+        
+        public void Reset()
+        {
+            clientPredictedEntity?.Reset();
+            serverPredictedEntity?.Reset();
+            visuals.Reset();
         }
     }
 }

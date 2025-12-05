@@ -1,4 +1,5 @@
 ﻿using Prediction.data;
+using Prediction.Interpolation;
 using UnityEngine;
 
 namespace Prediction
@@ -11,8 +12,8 @@ namespace Prediction
         [SerializeField] private GameObject serverGhostPrefab;
         [SerializeField] private GameObject clientGhostPrefab;
         
+        public VisualsInterpolationsProvider interpolationProvider { get; private set; }
         private ClientPredictedEntity clientPredictedEntity;
-        [SerializeField] private GameObject follow;
         
         private GameObject serverGhost;
         private GameObject clientGhost;
@@ -22,11 +23,16 @@ namespace Prediction
         public double targetTime = 0;
         public double artifficialDelay = 1f;
         private bool visualsDetached = false;
+
+        public void SetInterpolationProvider(VisualsInterpolationsProvider provider)
+        {
+            interpolationProvider = provider;
+            hasVIP = interpolationProvider != null;
+        }
         
         public void SetClientPredictedEntity(ClientPredictedEntity clientPredictedEntity, bool detachVisuals)
         {
             this.clientPredictedEntity = clientPredictedEntity;
-            follow = clientPredictedEntity.gameObject;
             currentTimeStep -= artifficialDelay;
             
             //TODO: listen for destruction events
@@ -36,24 +42,21 @@ namespace Prediction
                 visualsEntity.transform.SetParent(null);
             }
             
-            clientPredictedEntity.interpolationsProvider?.SetInterpolationTarget(visualsEntity.transform);
-            hasVIP = clientPredictedEntity.interpolationsProvider != null;
+            interpolationProvider?.SetInterpolationTarget(visualsEntity.transform);
             if (debug)
             {
                 serverGhost = Instantiate(serverGhostPrefab, Vector3.zero, Quaternion.identity);
-                clientGhost = Instantiate(clientGhostPrefab, Vector3.zero, Quaternion.identity, follow.transform);
+                clientGhost = Instantiate(clientGhostPrefab, Vector3.zero, Quaternion.identity, clientPredictedEntity.gameObject.transform);
             }
             
-            clientPredictedEntity.newStateReached.AddEventListener(OnNewStateReached);
+            clientPredictedEntity.newInterpolationStateReached.AddEventListener(AggregateState);
         }
 
-        void OnNewStateReached(bool ign)
+        void AggregateState(PhysicsStateRecord state)
         {
-            targetTime += Time.fixedDeltaTime;
+            interpolationProvider?.Add(state);
         }
 
-        //TODO: configurable
-        private float defaultLerpFactor = 20f;
         private PhysicsStateRecord rec;
         void Update()
         {
@@ -62,8 +65,7 @@ namespace Prediction
                 serverGhost.SetActive(SHOW_DBG);
             if (clientGhost)
                 clientGhost.SetActive(SHOW_DBG);
-            
-            if (!follow || !visualsDetached)
+            if (!visualsDetached)
                 return;
 
             rec = clientPredictedEntity.serverStateBuffer.GetEnd();
@@ -78,13 +80,18 @@ namespace Prediction
             
             if (clientPredictedEntity.isControlledLocally)
             {
-                clientPredictedEntity.interpolationsProvider.Update(Time.deltaTime);
+                interpolationProvider.Update(Time.deltaTime);
             }
             else
             {
                 transform.position = rec.position;
                 transform.rotation = rec.rotation;
             }
+        }
+
+        public void Reset()
+        {
+            interpolationProvider?.Reset();
         }
     }
 }

@@ -8,5 +8,6 @@ namespace Prediction.Interpolation
         void Update(float deltaTime);
         void Add(PhysicsStateRecord record);
         void SetInterpolationTarget(Transform t);
+        void Reset();
     }
 }

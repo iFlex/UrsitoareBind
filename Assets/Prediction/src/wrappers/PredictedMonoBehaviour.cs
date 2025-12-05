@@ -10,9 +10,9 @@ namespace Prediction.wrappers
         [SerializeField] private int bufferSize;
         [SerializeField] private Rigidbody _rigidbody;
         [SerializeField] private PredictedEntityVisuals visuals;
-        
-        private ClientPredictedEntity _clientPredictedEntity;
-        private ServerPredictedEntity _serverPredictedEntity;
+
+        public ClientPredictedEntity clientPredictedEntity { get; private set; }
+        public ServerPredictedEntity serverPredictedEntity { get; private set; }
         
         //TODO - wrap the prediction entities and configure
         void Awake()
@@ -23,17 +23,37 @@ namespace Prediction.wrappers
         void ConfigureAsServer()
         {
             //TODO: detect or wire components
-            _serverPredictedEntity = new ServerPredictedEntity(bufferSize, _rigidbody, visuals.gameObject, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            serverPredictedEntity = new ServerPredictedEntity(bufferSize, _rigidbody, visuals.gameObject, new PredictableControllableComponent[0], new PredictableComponent[0]);
         }
 
         void ConfigureAsClient(bool controlledLocally)
         {
             //TODO: detect or wire components
-            _clientPredictedEntity = new ClientPredictedEntity(30, _rigidbody, visuals.gameObject, new PredictableControllableComponent[0]{}, new PredictableComponent[0]{});
-            _clientPredictedEntity.gameObject = gameObject;
+            clientPredictedEntity = new ClientPredictedEntity(30, _rigidbody, visuals.gameObject, new PredictableControllableComponent[0]{}, new PredictableComponent[0]{});
+            clientPredictedEntity.gameObject = gameObject;
             //TODO: configurable
-            _clientPredictedEntity.interpolationsProvider = new MovingAverageInterpolator();
-            visuals.SetClientPredictedEntity(_clientPredictedEntity, visuals);
+            visuals.SetInterpolationProvider(new MovingAverageInterpolator());
+            visuals.SetClientPredictedEntity(clientPredictedEntity, visuals);
+        }
+
+        public bool IsControlledLocally()
+        {
+            if (clientPredictedEntity == null)
+                return true;
+            return clientPredictedEntity.isControlledLocally;
+        }
+        
+        public void SetControlledLocally(bool controlledLocally)
+        {
+            visuals.Reset();
+            clientPredictedEntity?.SetControlledLocally(controlledLocally);
+        }
+        
+        public void Reset()
+        {
+            visuals.Reset();
+            clientPredictedEntity?.Reset();
+            serverPredictedEntity?.Reset();
         }
     }
 }

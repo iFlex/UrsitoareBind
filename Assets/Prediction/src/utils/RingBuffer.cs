@@ -127,5 +127,10 @@
             int index = (start + localIndex) % buffer.Length;
             return buffer[index];
         }
+
+        public void Clear()
+        {
+            start = end = fill = 0;
+        }
     }
 }

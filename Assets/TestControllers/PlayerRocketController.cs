@@ -56,7 +56,7 @@ public class PlayerRocketController : PlayerController
         data.WriteNextBinary(_isBoosting);
     }
 
-    public override bool ValidateState(float deltaTime, PredictionInputRecord input)
+    public override bool ValidateInput(float deltaTime, PredictionInputRecord input)
     {
         return true;
     }

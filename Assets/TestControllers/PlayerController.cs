@@ -4,6 +4,7 @@ using Mirror;
 using Prediction;
 using Prediction.data;
 using Prediction.Interpolation;
+using Prediction.wrappers;
 using Unity.Cinemachine;
 using UnityEngine;
 
@@ -16,9 +17,11 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
     public ClientPredictedEntity clientPredictedEntity;
     public ServerPredictedEntity serverPredictedEntity;
     public CinemachineCamera pcam;
+    public CinemachineCamera fcam;
     
     public static SafeEventDispatcher<PlayerController> spawned = new SafeEventDispatcher<PlayerController>();
     public static SafeEventDispatcher<PlayerController> despawned = new SafeEventDispatcher<PlayerController>();
+    public PredictedMonoBehaviour predictedMono;
     
     void Start()
     {
@@ -53,7 +56,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
 
     public override void OnStartAuthority()
     {
-        clientPredictedEntity.isControlledLocally = isOwned;
+        clientPredictedEntity.SetControlledLocally(isOwned);
         SingletonUtils.localCPE = clientPredictedEntity;
         SetCamera(SingletonUtils.instance.povCam);
         Customize();
@@ -63,9 +66,10 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
     {
         clientPredictedEntity = new ClientPredictedEntity(30, rb, gameObject, new PredictableControllableComponent[1]{this}, new PredictableComponent[1]{this});
         clientPredictedEntity.gameObject = gameObject;
-        clientPredictedEntity.interpolationsProvider = new MovingAverageInterpolator();
-        SingletonUtils.localVisInterpolator = (MovingAverageInterpolator) clientPredictedEntity.interpolationsProvider;
+        pev.SetInterpolationProvider(new MovingAverageInterpolator());
         pev.SetClientPredictedEntity(clientPredictedEntity, detachVisuals);
+        
+        SingletonUtils.localVisInterpolator = (MovingAverageInterpolator) pev.interpolationProvider;
     }
 
     private void Update()
@@ -90,7 +94,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
 
     public abstract void SampleInput(PredictionInputRecord input);
 
-    public abstract bool ValidateState(float deltaTime, PredictionInputRecord input);
+    public abstract bool ValidateInput(float deltaTime, PredictionInputRecord input);
 
     public abstract void LoadInput(PredictionInputRecord input);
 }

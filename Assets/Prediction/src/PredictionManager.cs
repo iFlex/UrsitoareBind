@@ -31,7 +31,7 @@ namespace Prediction
         private PhysicsController physicsController;
         
         public Action<uint, PredictionInputRecord> clientStateSender;
-        public Action<uint, PhysicsStateRecord>    serverStateSender;
+        public Action<uint, uint, PhysicsStateRecord>    serverStateSender;
         
         private SingleSnapshotInstanceResimChecker singleSnapshotInstanceResimChecker;
 
@@ -178,7 +178,7 @@ namespace Prediction
                     
                     try
                     {
-                        serverStateSender?.Invoke(id, state);
+                        serverStateSender?.Invoke(id, tickId, state);
                     }
                     catch (Exception e)
                     {

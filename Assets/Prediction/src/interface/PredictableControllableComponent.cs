@@ -11,7 +11,7 @@ namespace Prediction
         public int GetFloatInputCount();
         public int GetBinaryInputCount();
         void SampleInput(PredictionInputRecord input);
-        bool ValidateState(float deltaTime, PredictionInputRecord input);
+        bool ValidateInput(float deltaTime, PredictionInputRecord input);
         void LoadInput(PredictionInputRecord input);
     }
 }

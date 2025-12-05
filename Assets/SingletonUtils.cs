@@ -47,6 +47,11 @@ namespace DefaultNamespace
                 topCam.Priority = p;
                 Debug.Log($"[SingletonUtils][CamSwap]");
             }
+            if (Input.GetKeyDown(KeyCode.B))
+            {
+                PlayerController pc = localCPE.gameObject.GetComponent<PlayerController>();
+                pc.fcam.gameObject.SetActive(!pc.fcam.gameObject.activeSelf);
+            }
 
             if (Input.GetKeyDown(KeyCode.Alpha0))
             {
