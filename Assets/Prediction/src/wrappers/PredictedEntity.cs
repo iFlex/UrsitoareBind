@@ -10,6 +10,7 @@
         bool IsControlledLocally();
         bool IsServer();
         bool IsClient();
+        
         void RegisterControlledLocally()
         {
             if (IsClient())

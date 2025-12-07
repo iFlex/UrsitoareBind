@@ -91,6 +91,7 @@ namespace Prediction
             
             _serverEntityToId[entity] = id;
             _idToServerEntity[id] = entity;
+            Debug.Log($"[PredictionManager][AddPredictedEntity] SERVER ({id})=>({entity})");
         }
         
         //TODO: uniform way of removing them
@@ -108,6 +109,8 @@ namespace Prediction
             }
             _serverEntityToId.Remove(entity);
             _entityToOwnerConnId.Remove(entity);
+            
+            Debug.Log($"[PredictionManager][RemovePredictedEntity] entity:{entity}");
         }
 
         public void AddPredictedEntity(uint id, ClientPredictedEntity entity)
@@ -115,7 +118,7 @@ namespace Prediction
             if (entity == null)
                 return;
             
-            Debug.Log($"[PredictionManager][AddPredictedEntity]({id})=>({entity})");
+            Debug.Log($"[PredictionManager][AddPredictedEntity] CLIENT ({id})=>({entity})");
             _nonControlledPredictedEntities[id] = entity;
         }
 
@@ -132,6 +135,7 @@ namespace Prediction
 
         public void SetLocalEntity(uint id, ClientPredictedEntity entity)
         {
+            Debug.Log($"[PredictionManager][SetLocalEntity]({id})=>{entity}");
             if (entity == null)
                 return;
             

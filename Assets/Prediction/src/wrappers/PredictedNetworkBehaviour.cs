@@ -18,10 +18,25 @@ namespace Prediction.wrappers
         public ClientPredictedEntity clientPredictedEntity { get; private set; }
         public ServerPredictedEntity serverPredictedEntity { get; private set; }
         public bool isReady { get; private set; }
+        
+        [SerializeField] private bool initialConfig = false;
 
+        private void SetReady(bool ready)
+        {
+            if (isReady != ready && ready)
+            {
+                initialConfig = true;
+                ((PredictedEntity)this).Register();
+            }
+
+            isReady = ready;
+        }
         void OnEnable()
         {
-            ((PredictedEntity)this).Register();
+            if (initialConfig)
+            {
+                ((PredictedEntity)this).Register();
+            }
         }
 
         void OnDisable()
@@ -32,7 +47,10 @@ namespace Prediction.wrappers
         public override void OnStartServer()
         {
             ConfigureAsServer();
-            isReady = true;
+            if (!isOwned)
+            {
+                SetReady(true);
+            }
         }
     
         public override void OnStartClient()
@@ -45,7 +63,7 @@ namespace Prediction.wrappers
             ConfigureAsClient(isOwned);
             if (!isOwned)
             {
-                isReady = true;
+                SetReady(true);
             }
         }
 
@@ -55,8 +73,8 @@ namespace Prediction.wrappers
             {
                 ConfigureAsClient(true);
             }
-            clientPredictedEntity.SetControlledLocally(isOwned);
-            isReady = true;
+            SetControlledLocally(isOwned);
+            SetReady(true);
         }
 
         //TODO: use common methods instead of duplicating the code here...
@@ -68,9 +86,9 @@ namespace Prediction.wrappers
         void ConfigureAsClient(bool controlledLocally)
         {
             clientPredictedEntity = new ClientPredictedEntity(30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
-            clientPredictedEntity.SetControlledLocally(controlledLocally);
             //TODO: configurable interpolator
             visuals.SetClientPredictedEntity(clientPredictedEntity, new MovingAverageInterpolator());
+            SetControlledLocally(controlledLocally);
         }
         
         public bool IsControlledLocally()
@@ -93,6 +111,7 @@ namespace Prediction.wrappers
         public void SetControlledLocally(bool controlledLocally)
         {
             Debug.Log($"[PredictedNetworkBehaviour][SetControlledLocally]({netId}):{controlledLocally}");
+            ((PredictedEntity)this).RegisterControlledLocally();
             visuals.Reset();
             clientPredictedEntity?.SetControlledLocally(controlledLocally);
         }
