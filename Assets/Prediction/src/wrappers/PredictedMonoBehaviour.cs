@@ -5,7 +5,7 @@ namespace Prediction.wrappers
 {
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(PredictedEntityVisuals))]
-    public class PredictedMonoBehaviour : MonoBehaviour
+    public class PredictedMonoBehaviour : MonoBehaviour, PredictedEntity
     {
         //FUDO: can we make components serializable?
         [SerializeField] private MonoBehaviour[] components;
@@ -20,6 +20,16 @@ namespace Prediction.wrappers
         void Awake()
         {
             //TODO: check visuals must be a child of this game object
+        }
+
+        void OnEnable()
+        {
+            ((PredictedEntity)this).Register();
+        }
+
+        void OnDisable()
+        {
+            ((PredictedEntity)this).Deregister();
         }
 
         void ConfigureAsServer()
@@ -42,9 +52,20 @@ namespace Prediction.wrappers
                 return true;
             return clientPredictedEntity.isControlledLocally;
         }
-        
+
+        public bool IsServer()
+        {
+            return true;
+        }
+
+        public bool IsClient()
+        {
+            return true;
+        }
+
         public void SetControlledLocally(bool controlledLocally)
         {
+            ((PredictedEntity)this).RegisterControlledLocally();
             visuals.Reset();
             clientPredictedEntity?.SetControlledLocally(controlledLocally);
         }
@@ -59,6 +80,27 @@ namespace Prediction.wrappers
         {
             ResetClient();
             serverPredictedEntity?.Reset();
+        }
+
+        public ClientPredictedEntity GetClientEntity()
+        {
+            return clientPredictedEntity;
+        }
+
+        public ServerPredictedEntity GetServerEntity()
+        {
+            return serverPredictedEntity;
+        }
+        
+        public virtual uint GetId()
+        {
+            return (uint) GetInstanceID();
+        }
+
+        public virtual int GetOwnerId()
+        {
+            //TODO: needs a provider here
+            return 0;
         }
     }
 }

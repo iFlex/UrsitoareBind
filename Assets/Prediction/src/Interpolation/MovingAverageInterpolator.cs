@@ -214,10 +214,6 @@ namespace Prediction.Interpolation
         public void Reset()
         {
             buffer.Clear();
-            averagedBuffer.Clear();
-            time = 0;
-            interpStarted = false;
-            smoothingTick = 0;
         }
     }
 }

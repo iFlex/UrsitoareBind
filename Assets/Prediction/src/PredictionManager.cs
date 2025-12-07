@@ -19,6 +19,7 @@ namespace Prediction
         private uint localEntityId;
         
         public Dictionary<ServerPredictedEntity, uint> _serverEntityToId = new Dictionary<ServerPredictedEntity, uint>();
+        private Dictionary<uint, ServerPredictedEntity> _idToServerEntity = new Dictionary<uint, ServerPredictedEntity>();
         private Dictionary<ServerPredictedEntity, int> _entityToOwnerConnId = new Dictionary<ServerPredictedEntity, int>();
         private Dictionary<int, ServerPredictedEntity> _connIdToEntity = new Dictionary<int, ServerPredictedEntity>();
         private Dictionary<uint, ClientPredictedEntity> _nonControlledPredictedEntities = new Dictionary<uint, ClientPredictedEntity>();
@@ -67,6 +68,9 @@ namespace Prediction
 
         public void SetEntityOwner(ServerPredictedEntity entity, int ownerId)
         {
+            if (entity == null)
+                return;
+            
             int prevConnId = _entityToOwnerConnId.GetValueOrDefault(entity, 0);
             if (prevConnId != 0)
             {
@@ -82,18 +86,35 @@ namespace Prediction
         
         public void AddPredictedEntity(uint id, ServerPredictedEntity entity)
         {
+            if (entity == null)
+                return;
+            
             _serverEntityToId[entity] = id;
+            _idToServerEntity[id] = entity;
         }
-
+        
+        //TODO: uniform way of removing them
         public void RemovePredictedEntity(ServerPredictedEntity entity)
         {
+            if (entity == null)
+                return;
+            
             SetEntityOwner(entity, 0);
+            if (_serverEntityToId.ContainsKey(entity))
+            {
+                uint id = _serverEntityToId[entity];
+                _serverEntityToId.Remove(entity);
+                _idToServerEntity.Remove(id);
+            }
             _serverEntityToId.Remove(entity);
             _entityToOwnerConnId.Remove(entity);
         }
 
         public void AddPredictedEntity(uint id, ClientPredictedEntity entity)
         {
+            if (entity == null)
+                return;
+            
             Debug.Log($"[PredictionManager][AddPredictedEntity]({id})=>({entity})");
             _nonControlledPredictedEntities[id] = entity;
         }
@@ -106,10 +127,14 @@ namespace Prediction
             {
                 SetLocalEntity(0, null);
             }
+            RemovePredictedEntity(_idToServerEntity.GetValueOrDefault(id));
         }
 
         public void SetLocalEntity(uint id, ClientPredictedEntity entity)
         {
+            if (entity == null)
+                return;
+            
             localEntity = entity;
             localEntityId = 0;
             if (entity != null)

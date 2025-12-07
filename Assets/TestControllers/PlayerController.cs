@@ -57,7 +57,8 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
         Customize();
     }
 
-    private bool redy = false;
+    [SerializeField] bool redy = false;
+    [SerializeField] bool dbgRedy = false;
     private void Update()
     {
         if (isOwned)
@@ -72,6 +73,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
             }
         }
         
+        dbgRedy = predictedMono.isReady;
         if (!redy && predictedMono.isReady)
         {
             SingletonUtils.localVisInterpolator = (MovingAverageInterpolator) predictedMono.visuals.interpolationProvider;
@@ -82,14 +84,14 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
         {
             return;
         }
-        
+
         if (pcam && !pcam.Follow && predictedMono.clientPredictedEntity != null)
         {
             pcam.Follow = predictedMono.visuals.transform;
             SingletonUtils.instance.topCam.Follow = predictedMono.visuals.transform;
         }
-
-        if (predictedMono.clientPredictedEntity != null && SingletonUtils.instance.clientText)
+        
+        if (predictedMono.clientPredictedEntity != null && predictedMono.clientPredictedEntity.isControlledLocally && SingletonUtils.instance.clientText)
         {
             SingletonUtils.instance.clientText.text = $"Tick:{predictedMono.clientPredictedEntity.totalTicks}\n " +
                                                       $"ServerDelay:{predictedMono.clientPredictedEntity.GetServerDelay()}\n " +

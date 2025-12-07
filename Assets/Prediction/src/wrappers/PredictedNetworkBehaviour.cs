@@ -6,7 +6,7 @@ namespace Prediction.wrappers
 {
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(PredictedEntityVisuals))]
-    public class PredictedNetworkBehaviour : NetworkBehaviour
+    public class PredictedNetworkBehaviour : NetworkBehaviour, PredictedEntity
     {
         //FUDO: can we make components serializable?
         [SerializeField] private MonoBehaviour[] components;
@@ -18,6 +18,16 @@ namespace Prediction.wrappers
         public ClientPredictedEntity clientPredictedEntity { get; private set; }
         public ServerPredictedEntity serverPredictedEntity { get; private set; }
         public bool isReady { get; private set; }
+
+        void OnEnable()
+        {
+            ((PredictedEntity)this).Register();
+        }
+
+        void OnDisable()
+        {
+            ((PredictedEntity)this).Deregister();
+        }
         
         public override void OnStartServer()
         {
@@ -69,23 +79,56 @@ namespace Prediction.wrappers
                 return true;
             return clientPredictedEntity.isControlledLocally;
         }
-        
+
+        public bool IsServer()
+        {
+            return isServer;
+        }
+
+        public bool IsClient()
+        {
+            return isClient;
+        }
+
         public void SetControlledLocally(bool controlledLocally)
         {
+            Debug.Log($"[PredictedNetworkBehaviour][SetControlledLocally]({netId}):{controlledLocally}");
             visuals.Reset();
             clientPredictedEntity?.SetControlledLocally(controlledLocally);
         }
 
         public void ResetClient()
         {
+            Debug.Log($"[PredictedNetworkBehaviour][ResetClient]({netId})");
             visuals.Reset();
             clientPredictedEntity?.Reset();
         }
         
         public void Reset()
         {
+            Debug.Log($"[PredictedNetworkBehaviour][Reset]({netId})");
             ResetClient();
             serverPredictedEntity?.Reset();
+        }
+        
+        public ClientPredictedEntity GetClientEntity()
+        {
+            return clientPredictedEntity;
+        }
+
+        public ServerPredictedEntity GetServerEntity()
+        {
+            return serverPredictedEntity;
+        }
+        
+        public virtual uint GetId()
+        {
+            return netId;
+        }
+
+        public virtual int GetOwnerId()
+        {
+            return (netIdentity.connectionToClient == null) ? 0 : netIdentity.connectionToClient.connectionId;
         }
     }
 }

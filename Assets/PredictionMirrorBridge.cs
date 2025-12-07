@@ -116,9 +116,6 @@ namespace DefaultNamespace
             if (isServer)
             {
                 int connId = entity.netIdentity.connectionToClient == null ? 0 : entity.netIdentity.connectionToClient.connectionId;
-                predictionManager.AddPredictedEntity(entity.netId, entity.predictedMono.serverPredictedEntity);   
-                predictionManager.SetEntityOwner(entity.predictedMono.serverPredictedEntity, connId);
-
                 if (entity.gameObject != sharedPredMono.gameObject)
                 {
                     ownership[connId] = entity.predictedMono;   
@@ -132,28 +129,10 @@ namespace DefaultNamespace
             }
             if (isClient && entity.predictedMono.clientPredictedEntity != null)
             {
-                predictionManager.AddPredictedEntity(entity.netId, entity.predictedMono.clientPredictedEntity);
                 if (entity.netIdentity.isOwned)
                 {
                     localPredMono = entity.predictedMono;
-                    predictionManager.SetLocalEntity(entity.netIdentity.netId, entity.predictedMono.clientPredictedEntity);
-                    //TODO: handle character change...
-                    entity.predictedMono.clientPredictedEntity.predictionAcceptable.AddEventListener(b =>
-                    {
-                        if (b)
-                        {
-                            //Debug.Log($"[Prediction][PredictionAcceptable]");
-                        }
-                    });
-                    entity.predictedMono.clientPredictedEntity.resimulation.AddEventListener(b =>
-                    {
-                        if (b)
-                        {
-                            resimCounter++;
-                            if (PRED_DEBUG)
-                                Debug.Log($"[Prediction][ResimulationStart]({resimCounter}) tickId:{entity.predictedMono.clientPredictedEntity.GetTotalTicks()} avgResim:{entity.predictedMono.clientPredictedEntity.GetAverageResimPerTick()}");
-                        }
-                    });
+                    entity.predictedMono.SetControlledLocally(true);
                 }
             }
             ktl?.DetectAllBodies();
@@ -161,18 +140,6 @@ namespace DefaultNamespace
         
         void OnDespawned(PlayerController entity)
         {
-            if (isServer)
-            {
-                predictionManager.RemovePredictedEntity(entity.predictedMono.serverPredictedEntity);  
-            }
-            if (isClient)
-            {
-                predictionManager.RemovePredictedEntity(entity.netId);
-                if (predictionManager.GetLocalEntity() == entity.predictedMono.clientPredictedEntity)
-                {
-                    predictionManager.SetLocalEntity(0, null);
-                }
-            }
             ktl?.DetectAllBodies();
         }
 
