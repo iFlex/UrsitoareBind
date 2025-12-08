@@ -136,6 +136,7 @@ namespace Prediction
             if (AddServerState(lastAppliedFollowerTick, lastArrivedServerState))
             {
                 SnapTo(serverStateBuffer.GetEnd());
+                //TODO: call this in turn somehow? have it consume from the buffer in order...
                 if (!isControlledLocally)
                 {
                     newInterpolationStateReached.Dispatch(lastArrivedServerState);

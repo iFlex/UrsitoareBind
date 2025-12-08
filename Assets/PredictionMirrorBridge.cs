@@ -28,7 +28,7 @@ namespace DefaultNamespace
         
         private Dictionary<int, PredictedNetworkBehaviour> originalOwnership = new Dictionary<int, PredictedNetworkBehaviour>();
         private Dictionary<int, PredictedNetworkBehaviour> ownership = new Dictionary<int, PredictedNetworkBehaviour>();
-        private Dictionary<PredictedNetworkBehaviour, int> entityToOwner = new Dictionary<PredictedNetworkBehaviour, int>();
+        private Dictionary<uint, int> entityIdToOwner = new Dictionary<uint, int>();
         
         public bool reliable = false;
         public int resimCounter = 0;
@@ -93,15 +93,17 @@ namespace DefaultNamespace
                 {
                     if (MSG_DEBUG)
                         Debug.Log($"[PredictionMirrorBridge][clientStateSender] SEND server_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
+                    /*
                     if (reliable)
                     {
                         ReportFromServerReliable(entityNetId, data);
                     }
                     else
                     {
-                        ReportFromServerUnreliable(entityNetId, data);
-                        //SendTargetedReportFromServerUnreliable(entityNetId, serverTick, data);
+                        //ReportFromServerUnreliable(entityNetId, data);
                     }
+                    */
+                    SendTargetedReportFromServer(entityNetId, serverTick, data, reliable);
                 };
                 
                 sharedGO = Instantiate(sharedGOPrefab, Vector3.one, Quaternion.identity);
@@ -119,7 +121,7 @@ namespace DefaultNamespace
                 {
                     ownership[connId] = entity.predictedMono;   
                     originalOwnership[connId] = entity.predictedMono;
-                    entityToOwner[entity.predictedMono] = connId;
+                    entityIdToOwner[entity.netId] = connId;
                 }
                 if (entity.isOwned)
                 {
@@ -175,16 +177,21 @@ namespace DefaultNamespace
                 Debug.Log($"[PredictionMirrorBridge][ReportToServer] Received client_report: tickId:{tickId} sender:{sender} data:{data}");
             predictionManager.OnClientStateReceived(sender.connectionId, tickId, data);
         }
-
-        void SendTargetedReportFromServerUnreliable(uint entityNetId, uint serverTickId, PhysicsStateRecord data)
+        
+        [Server]
+        void SendTargetedReportFromServer(uint entityNetId, uint serverTickId, PhysicsStateRecord data, bool reliable)
         {
-            //TODO
-            //TODO: send to owner
-            //TargetedReportFromServerUnreliable
+            int owner = entityIdToOwner.GetValueOrDefault(entityNetId, 0);
+            TargetedReportFromServerUnreliable(NetworkServer.connections[owner], entityNetId, data);
             
-            //TODO: send to everyone else
             data.tickId = serverTickId;
-            //TargetedReportFromServerUnreliable
+            foreach (NetworkConnectionToClient clientConn in NetworkServer.connections.Values)
+            {
+                if (clientConn.connectionId != owner)
+                {
+                    TargetedReportFromServerUnreliable(clientConn, entityNetId, data);
+                }
+            }
         }
         
         [TargetRpc(channel = Channels.Unreliable)]
@@ -230,7 +237,7 @@ namespace DefaultNamespace
         [Server]
         public void SwitchOwnership(int connectionId, PredictedNetworkBehaviour newObject)
         {
-            if (entityToOwner.ContainsKey(newObject))
+            if (entityIdToOwner.ContainsKey(newObject.netId))
             {
                 Debug.Log($"[PredictionMirrorBridge][SwitchOwnership] BUSY conn:{connectionId} newObj:{newObject}");
                 return;
@@ -238,7 +245,6 @@ namespace DefaultNamespace
             
             PredictedNetworkBehaviour pnb = GetOwnerObject(connectionId);
             pnb.SetControlledLocally(false);
-            entityToOwner.Remove(pnb);
             
             Debug.Log($"[PredictionMirrorBridge][SwitchOwnership] conn:{connectionId} oldObj:{pnb} newObj:{newObject}");
             
@@ -246,7 +252,8 @@ namespace DefaultNamespace
             predictionManager.SetEntityOwner(pnb.serverPredictedEntity, 9999);
 
             ownership[connectionId] = newObject;
-            entityToOwner[newObject] = connectionId;
+            entityIdToOwner[newObject.netId] = connectionId;
+            
             newObject.Reset();
             
             if (newObject == sharedPredMono && newObject.clientPredictedEntity == null)
