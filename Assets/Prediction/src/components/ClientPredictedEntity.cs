@@ -46,8 +46,8 @@ namespace Prediction
         public RingBuffer<PhysicsStateRecord> followerStateBuffer;
 
         public FollowerStateBlender followerStateBlender = new WeightedAverageBlender();
-        private FollowerState followerState = new FollowerState();
-
+        public FollowerState followerState = new FollowerState();
+        
         private bool isServer;
         
         //This is used exclusively in follower mode (predicted entity not controlled by user).
@@ -80,6 +80,7 @@ namespace Prediction
             this.predictionContributors = predictionContributors ?? Array.Empty<PredictableComponent>();
             
             serverStateBuffer = new TickIndexedBuffer<PhysicsStateRecord>(bufferSize);
+            serverStateBuffer.emptyValue = null;
             
             for (int i = 0; i < controllablePredictionContributors.Length; i++)
             {
@@ -139,6 +140,7 @@ namespace Prediction
             {
                 if (followerState.lastAppliedServerTick < serverStateBuffer.GetEndTick())
                 {
+                    totalServerFollowerTicks++;
                     SnapTo(serverStateBuffer.GetEnd());
                     followerState.lastAppliedServerTick = serverStateBuffer.GetEndTick();
                     followerState.tickId = followerState.lastAppliedServerTick;
@@ -194,11 +196,16 @@ namespace Prediction
 
         public void BufferFollowerServerTick(PhysicsStateRecord lastArrivedServerState)
         {
+            if (isControlledLocally)
+                throw new Exception("COMPONENT_MISSUSE. Called BufferFollowerServerTick on locally controlled component");
             AddServerState(followerState.lastAppliedServerTick, lastArrivedServerState);
         }
         
         public void BufferServerTick(uint lastAppliedTick, PhysicsStateRecord serverState)
         {
+            if (!isControlledLocally)
+                throw new Exception("COMPONENT_MISSUSE. Called BufferServerTick on non locally controlled component");
+            
             if (DEBUG)
                 Debug.Log($"[ClientPredictedEntity][BufferServerTick](goId:{gameObject.GetInstanceID()}) lastTick:{lastAppliedTick}  serverState:{serverState}");
             if (AddServerState(lastAppliedTick, serverState))
@@ -355,31 +362,37 @@ namespace Prediction
 
         public uint totalInteractionsWithLocalAuthority = 0;
         public uint totalBlendedFollowerTicks = 0;
-        public bool subsequentCollisionsExtendInterval = false;
-        public uint blendIntervalMultiplier = 2;
+        public uint totalBlendedFollowerTicksSnapTo = 0;
+        public uint totalServerFollowerTicks = 0;
+        public bool subsequentCollisionsExtendInterval = true;
+        public uint blendIntervalMultiplier = 3;
         
         //NOTE: external entry point
         public void MarkInteractionWithLocalAuthority()
         {
             if (!predictFollowers)
                 return;
-
+            
+            totalInteractionsWithLocalAuthority++;
             if (!subsequentCollisionsExtendInterval && followerState.overlappingWithLocalAuthority)
                 return;
             
+            bool isSubsequentInteraction = followerState.overlappingWithLocalAuthority;
             //TODO: wire this getter in or wire in the prediction manager (however that's coupling)
             uint serverLatencyInTicks = PredictionManager.GetServerTickDelay() * blendIntervalMultiplier;
             if (DEBUG)
                 Debug.Log($"[ClientPredictedEntity][Blend][MarkInteractionWithLocalAuthority](goId:{gameObject.GetInstanceID()}) delay:{serverLatencyInTicks} totalInter:{totalInteractionsWithLocalAuthority} tickId:{followerState.tickId}");
-            
-            followerState.overlapWithAuthorityStart = followerState.tickId;
+
+            if (!isSubsequentInteraction)
+            {
+                followerState.overlapWithAuthorityStart = followerState.tickId;
+            }
             followerState.overlapWithAuthorityEnd = followerState.tickId + serverLatencyInTicks;
             
             //TODO: think well about subsequent colisions, we don't want to overwrite them with the SnapTo phase...
             //For now only the first collision in blended window triggers this
             //TODO: consider externally applied forces
             followerState.overlappingWithLocalAuthority = true;
-            totalInteractionsWithLocalAuthority++;
             interactedWithLocalAuthority.Dispatch(true);
         }
 
@@ -387,9 +400,7 @@ namespace Prediction
         {
             if (DEBUG)
                 Debug.Log($"[ClientPredictedEntity][Blend][TickOverlapWithAuthority][1](goId:{gameObject.GetInstanceID()}) overlapping:{followerState.overlappingWithLocalAuthority} tickId:{followerState.tickId} end:{followerState.overlapWithAuthorityEnd}");
-
-            //TODO: figure out when the physics engine applies the collision forces, to make sure we don't overwrite them with this algorithm but rather
-            //sample those forces and blend with server!!!
+            
             if (!followerState.overlappingWithLocalAuthority)
                 return false;
 
@@ -399,12 +410,13 @@ namespace Prediction
                 return false;
             }
             
-            totalBlendedFollowerTicks++;
             if (followerStateBlender != null && followerState.tickId != followerState.overlapWithAuthorityStart)
             {
+                totalBlendedFollowerTicks++;
                 if (followerStateBlender.BlendStep(followerState, blendedFollowStateBuffer, followerStateBuffer,
                         serverStateBuffer))
                 {
+                    totalBlendedFollowerTicksSnapTo++;
                     PhysicsStateRecord record = blendedFollowStateBuffer.Get((int) followerState.tickId);
                     SnapTo(record);
                     if (DEBUG)

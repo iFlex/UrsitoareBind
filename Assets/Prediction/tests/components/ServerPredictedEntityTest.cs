@@ -323,8 +323,9 @@ namespace Prediction.Tests
         public void TestBufferSkipAhead()
         {
             float interval = 0.15f;
-            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime) - 1;
+            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime);
             entity.SetSnapToClientThreshold(interval);
+            entity.snapToClient = true;
             for (int i = 0; i < count; i++)
             {
                 entity.BufferClientTick((uint) i, reports[1]);
@@ -339,7 +340,47 @@ namespace Prediction.Tests
         [Test]
         public void TestBufferSkipAheadDuringNormalOp()
         {
+            float interval = 0.1f;
+            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime);
+            entity.SetSnapToClientThreshold(interval);
+            entity.snapToClient = true;
+            
+            for (int i = 0; i < count * 2; i++)
+            {
+                entity.BufferClientTick((uint) i, reports[i % reports.Length]);
+                if (i % 2 == 0)
+                {
+                    entity.ServerSimulationTick();
+                }
+
+                if (i > 0 && i % count == 0)
+                {
+                    Assert.AreEqual(1, entity.inputQueue.GetFill());   
+                }
+                else
+                {
+                    int chk = (i < count) ? i  : 1 + i % count;
+                    Assert.AreEqual(chk, entity.inputQueue.GetFill());
+                }
+            }
         }
+        
+        [Test]
+        public void TestBufferNeverSkipAheadDuringNormalOp()
+        {
+            float interval = 0.1f;
+            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime); //12
+            entity.SetSnapToClientThreshold(interval);
+            entity.snapToClient = true;
+            
+            for (int i = 1; i < count * 3; i++)
+            {
+                entity.BufferClientTick((uint) i, reports[i % reports.Length]);
+                entity.ServerSimulationTick();
+                Assert.AreEqual(0, entity.inputQueue.GetFill());
+            }
+        }
+        
         
         //TODO: test buffer too big, skip ahead 2...
         [Test]

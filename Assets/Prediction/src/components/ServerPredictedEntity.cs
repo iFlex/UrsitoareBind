@@ -214,7 +214,11 @@ namespace Prediction
             if (DEBUG)
                 Debug.Log($"[ServerPredictedEntity][SnapToLatest]({gameObject.GetInstanceID()})");
             totalSnapAheadCounter++;
+
+            uint tick = inputQueue.GetEndTick();
+            PredictionInputRecord pir = inputQueue.GetEnd();
             inputQueue.Clear();
+            inputQueue.Add(tick, pir);
             bufferFilling = true;
         }
         

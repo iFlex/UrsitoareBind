@@ -310,47 +310,225 @@ namespace Prediction.Tests
             Assert.AreEqual(33, entity.totalResimulations);
         }
         
-        //TODO: test follow server
         [Test]
         public void TestFollowerHappyPath()
         {
+            entity.SetControlledLocally(false);
+            entity.subsequentCollisionsExtendInterval = true;
+            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
             
+            //Reorder & Jump ahead & dropped package & duplication included
+            uint[] ticks = { 1, 2, 3, 6, 5, 7, 8, 11, 12, 9, 10, 13, 13, 13};
+            for (int i = 0; i < ticks.Length; ++i)
+            {
+                Vector3 serverPos = Vector3.left * i;
+                PhysicsStateRecord psr = new PhysicsStateRecord();
+                psr.tickId = ticks[i];
+                psr.position = serverPos;
+                psr.velocity = Vector3.zero;
+                psr.angularVelocity = Vector3.zero;
+                psr.rotation = Quaternion.identity;
+                entity.BufferFollowerServerTick(psr);
+                entity.ClientFollowerSimulationTick();
+
+                if (i > 11)
+                {
+                    Assert.AreEqual(Vector3.left * 11, rigidbody.position);   
+                }
+                else if (i != 4 && i != 9 && i != 10)
+                {
+                    Assert.AreEqual(serverPos, rigidbody.position);
+                }
+            }
+            
+            Assert.AreEqual(0, entity.totalBlendedFollowerTicks);
+            Assert.AreEqual(0, entity.totalBlendedFollowerTicksSnapTo);
+            Assert.AreEqual(9, entity.totalServerFollowerTicks);
         }
         
         [Test]
-        public void TestFollowerReorder()
+        public void TestFollowerMissingServerMessages()
         {
+            entity.SetControlledLocally(false);
+            entity.subsequentCollisionsExtendInterval = true;
+            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
             
+            Vector3 serverPos = Vector3.left;
+            uint[] ticks = { 1, 2, 3, 4};
+            uint[] postTicks = {5, 6, 7, 8};
+            for (int i = 0; i < ticks.Length; ++i)
+            {
+                serverPos = Vector3.left * i;
+                PhysicsStateRecord psr = new PhysicsStateRecord();
+                psr.tickId = ticks[i];
+                psr.position = serverPos;
+                psr.velocity = Vector3.zero;
+                psr.angularVelocity = Vector3.zero;
+                psr.rotation = Quaternion.identity;
+                
+                entity.BufferFollowerServerTick(psr);
+                entity.ClientFollowerSimulationTick();
+                Assert.AreEqual(serverPos, rigidbody.position);
+            }
+
+            for (int i = 0; i < 4; ++i)
+            {
+                entity.ClientFollowerSimulationTick();
+                Assert.AreEqual(serverPos, rigidbody.position);
+            }
+
+            for (int i = 0; i < postTicks.Length; ++i)
+            {
+                serverPos = Vector3.left * i;
+                PhysicsStateRecord psr = new PhysicsStateRecord();
+                psr.tickId = postTicks[i];
+                psr.position = serverPos;
+                psr.velocity = Vector3.zero;
+                psr.angularVelocity = Vector3.zero;
+                psr.rotation = Quaternion.identity;
+                
+                entity.BufferFollowerServerTick(psr);
+                entity.ClientFollowerSimulationTick();
+                Assert.AreEqual(serverPos, rigidbody.position);
+            }
+
+            Assert.AreEqual(0, entity.totalBlendedFollowerTicks);
+            Assert.AreEqual(0, entity.totalBlendedFollowerTicksSnapTo);
+            Assert.AreEqual(8, entity.totalServerFollowerTicks);
         }
-        
-        [Test]
-        public void TestFollowerLatencyAndDrops()
-        {
-            
-        }
-        
-        [Test]
-        public void TestFollowerMissingSrvMessages()
-        {
-            
-        }
+        //TODO: test larger packet drop? test repeated package?
         
         [Test]
         public void TestBlendHappyPath()
         {
+            entity.SetControlledLocally(false);
+            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
+            entity.MarkInteractionWithLocalAuthority();
+            entity.ClientFollowerSimulationTick();
+            entity.ClientFollowerSimulationTick(); //Do nothing while tick hasn't advanced via phys sim yet
+            uint expectedInterval = 12 * entity.blendIntervalMultiplier;
             
+            Assert.AreEqual(0, entity.followerState.tickId);
+            Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
+            Assert.AreEqual(0, entity.followerState.overlapWithAuthorityStart);
+            Assert.AreEqual(expectedInterval, entity.followerState.overlapWithAuthorityEnd);
+            Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+
+            for (int i = 0; i < expectedInterval; ++i)
+            {
+                entity.SamplePhysicsState(0);
+                entity.ClientFollowerSimulationTick();
+                Assert.AreEqual(i + 1, entity.followerState.tickId);
+                Assert.AreEqual(0, entity.followerState.overlapWithAuthorityStart);
+                Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
+                Assert.AreEqual(expectedInterval, entity.followerState.overlapWithAuthorityEnd);
+                Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+            }
+            
+            entity.SamplePhysicsState(0);
+            entity.ClientFollowerSimulationTick();
+            Assert.AreEqual(expectedInterval + 1, entity.followerState.tickId);
+            Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
+            Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
+            
+            entity.SamplePhysicsState(0);
+            entity.ClientFollowerSimulationTick();
+            Assert.AreEqual(expectedInterval + 2, entity.followerState.tickId);
+            Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
+            Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
+            
+            Assert.AreEqual(expectedInterval, entity.totalBlendedFollowerTicks);
+            Assert.AreEqual(expectedInterval, entity.totalBlendedFollowerTicksSnapTo);
         }
-        
+
+        [Test]
+        public void TestBlendHappyPathMultipleInteractions()
+        {
+            entity.SetControlledLocally(false);
+            entity.subsequentCollisionsExtendInterval = true;
+            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
+            int tickPeriod = 12;
+            int totalTicks = tickPeriod * 10 + 5;
+            
+            for (int i = 0; i < totalTicks; ++i)
+            {
+                PhysicsStateRecord psr = new PhysicsStateRecord();
+                psr.tickId = (uint) i;
+                psr.position = Vector3.zero;
+                psr.velocity = Vector3.zero;
+                psr.angularVelocity = Vector3.zero;
+                psr.rotation = Quaternion.identity;
+                entity.BufferFollowerServerTick(psr);
+                
+                entity.SamplePhysicsState(0);
+                entity.ClientFollowerSimulationTick();
+                
+                if ((i > 0 && i < tickPeriod) || i == tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier + 1 || i > 60 + tickPeriod * entity.blendIntervalMultiplier + 2)
+                {
+                    Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
+                    Assert.AreEqual(i, entity.followerState.tickId);
+                    Assert.AreEqual(i, entity.followerState.lastAppliedServerTick);
+                }
+                
+                if (i == tickPeriod || i == tickPeriod + 3 || i == tickPeriod + 6 || i == 60)
+                {
+                    entity.MarkInteractionWithLocalAuthority();
+                }
+                
+                //TODO: deduplicate... extract to func.
+                if (i == tickPeriod + 1)
+                {
+                    Assert.AreEqual(tickPeriod + 1, entity.followerState.tickId);
+                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(entity.followerState.overlapWithAuthorityStart + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+                
+                if (i == tickPeriod + 3 + 1)
+                {
+                    Assert.AreEqual(tickPeriod + 3 + 1, entity.followerState.tickId);
+                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(tickPeriod + 3 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+                
+                if (i == tickPeriod + 6 + 1)
+                {
+                    Assert.AreEqual(tickPeriod + 6 + 1, entity.followerState.tickId);
+                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+                
+                if (i == 60 + 1)
+                {
+                    Assert.AreEqual(60 + 1, entity.followerState.tickId);
+                    Assert.AreEqual(60, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(60, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(60 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+            }
+
+            int totalBlendTicks = (int)(6 + 2 * tickPeriod * entity.blendIntervalMultiplier);
+            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicks);
+            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicksSnapTo);
+            Assert.AreEqual(totalTicks - totalBlendTicks - 1, entity.totalServerFollowerTicks);
+        }
+
         [Test]
         public void TestBlendEarlyExit()
         {
-            
+            //TODO
         }
         
         [Test]
         public void TestBlendSnapToCalls()
         {
-            
+            //TODO
         }
     }
 }
