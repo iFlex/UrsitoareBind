@@ -446,6 +446,7 @@ namespace Prediction.Tests
         {
             entity.SetControlledLocally(false);
             entity.subsequentCollisionsExtendInterval = true;
+            entity.collisionsResetBlendIntervalCompletely = false;
             PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
             int tickPeriod = 12;
             int totalTicks = tickPeriod * 10 + 5;
@@ -518,7 +519,86 @@ namespace Prediction.Tests
             Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicksSnapTo);
             Assert.AreEqual(totalTicks - totalBlendTicks - 1, entity.totalServerFollowerTicks);
         }
+        
+         [Test]
+        public void TestBlendHappyPathMultipleInteractionsWithReset()
+        {
+            entity.SetControlledLocally(false);
+            entity.subsequentCollisionsExtendInterval = true;
+            entity.collisionsResetBlendIntervalCompletely = true;
+            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
+            int tickPeriod = 12;
+            int totalTicks = tickPeriod * 10 + 5;
+            
+            for (int i = 0; i < totalTicks; ++i)
+            {
+                PhysicsStateRecord psr = new PhysicsStateRecord();
+                psr.tickId = (uint) i;
+                psr.position = Vector3.zero;
+                psr.velocity = Vector3.zero;
+                psr.angularVelocity = Vector3.zero;
+                psr.rotation = Quaternion.identity;
+                entity.BufferFollowerServerTick(psr);
+                
+                entity.SamplePhysicsState(0);
+                entity.ClientFollowerSimulationTick();
+                
+                if ((i > 0 && i < tickPeriod) || i == tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier + 1 || i > 60 + tickPeriod * entity.blendIntervalMultiplier + 2)
+                {
+                    Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
+                    Assert.AreEqual(i, entity.followerState.tickId);
+                    Assert.AreEqual(i, entity.followerState.lastAppliedServerTick);
+                }
+                
+                if (i == tickPeriod || i == tickPeriod + 3 || i == tickPeriod + 6 || i == 60)
+                {
+                    entity.MarkInteractionWithLocalAuthority();
+                }
+                
+                //TODO: deduplicate... extract to func.
+                if (i == tickPeriod + 1)
+                {
+                    Assert.AreEqual(tickPeriod + 1, entity.followerState.tickId);
+                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(entity.followerState.overlapWithAuthorityStart + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+                
+                if (i == tickPeriod + 3 + 1)
+                {
+                    Assert.AreEqual(tickPeriod + 3 + 1, entity.followerState.tickId);
+                    Assert.AreEqual(tickPeriod + 3, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(tickPeriod + 3 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+                
+                if (i == tickPeriod + 6 + 1)
+                {
+                    Assert.AreEqual(tickPeriod + 6 + 1, entity.followerState.tickId);
+                    Assert.AreEqual(tickPeriod + 6, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+                
+                if (i == 60 + 1)
+                {
+                    Assert.AreEqual(60 + 1, entity.followerState.tickId);
+                    Assert.AreEqual(60, entity.followerState.overlapWithAuthorityStart);
+                    Assert.AreEqual(60, entity.followerState.lastAppliedServerTick);
+                    Assert.AreEqual(60 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
+                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
+                }
+            }
 
+            int totalBlendTicks = (int)(6 + 2 * tickPeriod * entity.blendIntervalMultiplier);
+            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicks);
+            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicksSnapTo);
+            Assert.AreEqual(totalTicks - totalBlendTicks - 1, entity.totalServerFollowerTicks);
+        }
+        
         [Test]
         public void TestBlendEarlyExit()
         {
