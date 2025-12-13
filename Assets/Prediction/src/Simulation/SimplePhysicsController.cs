@@ -19,6 +19,10 @@ namespace Prediction.Simulation
             //NOOP
         }
 
+        public void Rewind(uint ticks)
+        {
+        }
+
         public void Resimulate(ClientPredictedEntity entity)
         {
             Physics.Simulate(Time.fixedDeltaTime);

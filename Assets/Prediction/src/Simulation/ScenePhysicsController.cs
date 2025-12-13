@@ -20,6 +20,10 @@ namespace Prediction.Simulation
             //TODO: use separate scene
         }
 
+        public void Rewind(uint ticks)
+        {
+        }
+
         public void Resimulate(ClientPredictedEntity entity)
         {
             //TODO: use separate scene

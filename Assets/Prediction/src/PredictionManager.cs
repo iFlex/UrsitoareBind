@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Prediction
 {
-    //TODO: decoule the implementation from Time.fixedDeltaTime, have it be configurable
+    //TODO: decouple the implementation from Time.fixedDeltaTime, have it be configurable
     public class PredictionManager: MonoBehaviour
     {
         public static bool DEBUG = false;
@@ -17,7 +17,7 @@ namespace Prediction
         public static PredictionManager Instance;
         public static Func<VisualsInterpolationsProvider> INTERPOLATION_PROVIDER = () => new MovingAverageInterpolator();
         public static SingleSnapshotInstanceResimChecker SNAPSHOT_INSTANCE_RESIM_CHECKER = new SimpleConfigurableResimulationDecider();
-        public static PhysicsController PHYSICS_CONTROLLED = new SimplePhysicsControllerKinematic();
+        public static PhysicsController PHYSICS_CONTROLLED = new RewindablePhysicsController(); // new SimplePhysicsControllerKinematic();
         public static Func<double> ROUND_TRIP_GETTER;
         
         [SerializeField] private GameObject localGO;

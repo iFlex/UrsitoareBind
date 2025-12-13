@@ -45,7 +45,8 @@ namespace Prediction
         public RingBuffer<PhysicsStateRecord> blendedFollowStateBuffer;
         public RingBuffer<PhysicsStateRecord> followerStateBuffer;
 
-        public FollowerStateBlender followerStateBlender = new DefaultToClientSimBlender(); //new WeightedAverageBlender();
+        public FollowerStateBlender followerStateBlender = new WeightedAverageBlender();
+        //public FollowerStateBlender followerStateBlender = new DefaultToClientSimBlender();
         public FollowerState followerState = new FollowerState();
         
         private bool isServer;
@@ -264,16 +265,14 @@ namespace Prediction
 
         void SnapTo(PhysicsStateRecord serverState)
         {
-            rigidbody.position = serverState.position;
-            rigidbody.rotation = serverState.rotation;
-            rigidbody.linearVelocity = serverState.velocity;
-            rigidbody.angularVelocity = serverState.angularVelocity;
+            serverState.To(rigidbody);
         }
         
         void ResimulateFrom(uint startTick, uint lastAppliedTick, PhysicsStateRecord startState)
         {
             physicsController.BeforeResimulate(this);
             resimulation.Dispatch(true);
+            physicsController.Rewind(lastAppliedTick - startTick);
             
             //Apply Server State
             SnapTo(startState);

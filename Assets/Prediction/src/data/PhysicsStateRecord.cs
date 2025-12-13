@@ -26,6 +26,14 @@ namespace Prediction.data
             velocity = record.velocity;
             angularVelocity = record.angularVelocity;
         }
+
+        public void To(Rigidbody r)
+        {
+            r.position = position;
+            r.rotation = rotation;
+            r.linearVelocity = velocity;
+            r.angularVelocity = angularVelocity;
+        }
         
         public void From(PhysicsStateRecord record, uint tickOverride)
         {

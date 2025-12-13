@@ -50,6 +50,10 @@ namespace Prediction.Simulation
             entity.rigidbody.isKinematic = false;
         }
 
+        public void Rewind(uint ticks)
+        {
+        }
+
         public void Resimulate(ClientPredictedEntity entity)
         {
             Physics.Simulate(Time.fixedDeltaTime);

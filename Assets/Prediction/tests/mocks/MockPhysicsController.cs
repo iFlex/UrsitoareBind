@@ -23,6 +23,10 @@ namespace Prediction.Tests.mocks
         {
         }
 
+        public void Rewind(uint ticks)
+        {
+        }
+
         public void Resimulate(ClientPredictedEntity entity)
         {
         }
