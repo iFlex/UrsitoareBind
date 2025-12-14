@@ -274,6 +274,34 @@ namespace Prediction.Tests
             Assert.AreEqual(3, ignore4);
             Assert.AreEqual(3, ignore5);
         }
+
+        [Test]
+        public void TestSnapToServerNoData()
+        {
+            rigidbody.position = Vector3.one * 10;
+            entity.SnapToServer(1);
+            Assert.AreEqual(Vector3.one * 10, rigidbody.position);
+        }
+        
+        [Test]
+        public void TestSnapToServer()
+        {
+            var serverInputs = new [] { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.right, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
+            var serverTicks = GenerateServerStates(serverInputs, rigidbody);
+            rigidbody.position = Vector3.one * 10;
+            entity.BufferServerTick(0, serverTicks[1]);
+            entity.BufferServerTick(0, serverTicks[2]);
+            entity.BufferServerTick(0, serverTicks[3]);
+            
+            entity.SnapToServer(1);
+            Assert.AreEqual(serverTicks[1].position, rigidbody.position);
+            entity.SnapToServer(2);
+            Assert.AreEqual(serverTicks[2].position, rigidbody.position);
+            entity.SnapToServer(3);
+            Assert.AreEqual(serverTicks[3].position, rigidbody.position);
+            entity.SnapToServer(4);
+            Assert.AreEqual(serverTicks[3].position, rigidbody.position);
+        }
         
         //TODO: test larger packet drop? test repeated package?
     }

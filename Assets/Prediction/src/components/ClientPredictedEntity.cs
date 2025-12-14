@@ -180,13 +180,12 @@ namespace Prediction
             return singleStateResimulationEligibilityHook.Invoke(localState, serverState);
         }
         
-        //TODO: unit test: including edgecases of no data.
         public void SnapToServer(uint tickId)
         {
             PhysicsStateRecord state = serverStateBuffer.Get(tickId);
             if (state == null)
             {
-                //TODO: quantiy and log
+                //TODO: do we need to do something?
                 return;
             }
             SnapTo(state);

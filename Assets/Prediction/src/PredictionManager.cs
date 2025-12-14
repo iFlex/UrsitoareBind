@@ -259,7 +259,10 @@ namespace Prediction
             }
             return IntToPredictionDecision(decisionCode);
         }
-        
+
+        public uint totalResimulationsTriggeredByLocalAuthority = 0;
+        public uint totalResimulationsTriggeredByFollowers = 0;
+        public uint totalResimulationsTriggeredByBoth = 0;
         void ResimulationCheckPass()
         {
             if (isClient && !isServer)
