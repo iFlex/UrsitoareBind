@@ -25,7 +25,7 @@ namespace Prediction.wrappers
             if (IsClientOnly())
             {
                 applier.Invoke(GetRigidbody());
-                GetClientEntity().MarkInteractionWithLocalAuthority();
+                //GetClientEntity().MarkInteractionWithLocalAuthority();
             }
         }
         

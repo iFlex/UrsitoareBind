@@ -163,7 +163,7 @@ namespace Prediction.wrappers
                 if (PredictionManager.Instance.IsPredicted(other.rigidbody))
                 {
                     Debug.Log($"[PredictedNetworkBehaviour][OnCollisionEnter] this:{gameObject}({gameObject.GetInstanceID()}) other:{other}:({other.rigidbody})::{other.rigidbody.gameObject.GetInstanceID()}");
-                    GetClientEntity().MarkInteractionWithLocalAuthority();
+                    //GetClientEntity().MarkInteractionWithLocalAuthority();
                 }
             }
         }

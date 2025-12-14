@@ -30,12 +30,11 @@ namespace Prediction.Tests
             
             entity = new ClientPredictedEntity(false, 20, rigidbody, test, new []{component}, new[]{component});
             entity.SetSingleStateEligibilityCheckHandler(resimDecider.Check);
-            entity.physicsController = physicsController;
             entity.SetControlledLocally(true);
         }
 
         [TearDown]
-        public void TeaDown()
+        public void TearDown()
         {
             entity.resimulation.Clear();
             entity.resimulationStep.Clear();
@@ -76,7 +75,7 @@ namespace Prediction.Tests
             return output;
         }
 
-        PhysicsStateRecord[] GenerateServerStates(Vector3[] inputs)
+        public static PhysicsStateRecord[] GenerateServerStates(Vector3[] inputs, Rigidbody rigidbody)
         {
             PhysicsStateRecord[] states = new PhysicsStateRecord[inputs.Length];
             for (int i = 0; i < inputs.Length; i++)
@@ -90,7 +89,7 @@ namespace Prediction.Tests
             return states;
         }
 
-        Vector3 GetInputFromInputRecord(PredictionInputRecord record)
+        public static Vector3 GetInputFromInputRecord(PredictionInputRecord record)
         {
             record.ReadReset();
             return new Vector3(record.ReadNextScalar(), record.ReadNextScalar(), record.ReadNextScalar());
@@ -100,7 +99,7 @@ namespace Prediction.Tests
         public void TestTickAdvanceAndInputReport()
         {
             var inputs = new [] { Vector3.zero, Vector3.left, Vector3.right, Vector3.up, Vector3.down };
-            var serverTicks = GenerateServerStates(inputs);
+            var serverTicks = GenerateServerStates(inputs, rigidbody);
 
             //TODO: modernize test, generate all expected positions instead of sampling physics rb & check
             for (uint tickId = 1; tickId < inputs.Length; ++tickId)
@@ -127,7 +126,7 @@ namespace Prediction.Tests
         public void TestHappyPath()
         {
             var inputs = new [] { Vector3.zero, Vector3.left, Vector3.left, Vector3.right, Vector3.up, Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.down, Vector3.left };
-            var serverTicks = GenerateServerStates(inputs);
+            var serverTicks = GenerateServerStates(inputs, rigidbody);
             int serverDelay = 3;
             
             for (uint tickId = 1; tickId < inputs.Length; ++tickId)
@@ -156,7 +155,7 @@ namespace Prediction.Tests
         public void TestServerOutOfOrderMessages()
         {
             var inputs = new [] { Vector3.left, Vector3.left, Vector3.right, Vector3.up, Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.down, Vector3.left };
-            var serverTicks = GenerateServerStates(inputs);
+            var serverTicks = GenerateServerStates(inputs, rigidbody);
             List<int[]> serverScramble = new List<int[]>();
             serverScramble.Add(new int[0]);
             serverScramble.Add(new int[0]);
@@ -180,8 +179,7 @@ namespace Prediction.Tests
                     entity.BufferServerTick(tickId, serverTicks[i]);
                 }
             }
-            
-            //TODO: tests
+            //TODO: tests!!
         }
         
         [Test]
@@ -189,25 +187,12 @@ namespace Prediction.Tests
         {
             var inputs = new []       { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.right,  Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.right,   Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
             var serverInputs = new [] { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up,    Vector3.up,  Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.up,      Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
-            var serverTicks = GenerateServerStates(serverInputs);
+            var serverTicks = GenerateServerStates(serverInputs, rigidbody);
             Dictionary<int, Vector3> posCorrections = new Dictionary<int, Vector3>();
             posCorrections.Add(5, serverTicks[5].position);
             posCorrections.Add(11, serverTicks[11].position);
             
             int serverDelay = 3;
-            int resimulationsCounter = 0;
-            int resimSteps = 0;
-            entity.resimulation.AddEventListener((started) =>
-            {
-                if (started)
-                    resimulationsCounter++;
-            });
-            entity.resimulationStep.AddEventListener((started) =>
-            {
-                if (started)
-                    resimSteps++;
-            });
-            
             for (uint tickId = 1; tickId < inputs.Length; ++tickId)
             {
                 component.inputVector = inputs[tickId];
@@ -217,18 +202,16 @@ namespace Prediction.Tests
                 {
                     entity.BufferServerTick(tickId, serverTicks[tickId - serverDelay]);
                 }
-            }
-            
-            Assert.AreEqual(2, resimulationsCounter);
-            Vector3[] expectedPosStream = ComputePosStream(serverInputs, posCorrections);
-            for (int i = 1; i < inputs.Length; ++i)
-            {
-                //TODO: can we make it sample on the same tick?
-                if (i < inputs.Length - 1)
-                    Assert.AreEqual(expectedPosStream[i], entity.localStateBuffer.Get(i).position);
-                Assert.AreEqual(inputs[i], GetInputFromInputRecord(entity.localInputBuffer.Get(i)));
-                if (i < inputs.Length - serverDelay)
-                    Assert.AreEqual(serverTicks[i].position, entity.serverStateBuffer.Get((uint) i).position);
+
+                if (tickId >= 5 && tickId < 8)
+                {
+                    Assert.AreEqual(PredictionDecision.NOOP, entity.GetPredictionDecision(tickId, out uint ignore));
+                }
+                if (tickId >= 8)
+                {
+                    Assert.AreEqual(PredictionDecision.RESIMULATE, entity.GetPredictionDecision(tickId, out uint from));
+                    Assert.AreEqual(tickId - serverDelay, from);
+                }
             }
         }
         
@@ -237,23 +220,11 @@ namespace Prediction.Tests
         {
             var inputs = new []       { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up,    Vector3.right, Vector3.up, Vector3.right, Vector3.up };
             var serverInputs = new [] { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.right, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
-            var serverTicks = GenerateServerStates(serverInputs);
+            var serverTicks = GenerateServerStates(serverInputs, rigidbody);
             Dictionary<int, Vector3> posCorrections = new Dictionary<int, Vector3>();
             posCorrections.Add(4, serverTicks[4].position);
             
             int serverDelay = 1;
-            int resimulationsCounter = 0;
-            int resimSteps = 0;
-            entity.resimulation.AddEventListener((started) =>
-            {
-                if (started)
-                    resimulationsCounter++;
-            });
-            entity.resimulationStep.AddEventListener((started) =>
-            {
-                if (started)
-                    resimSteps++;
-            });
             
             for (uint tickId = 1; tickId < inputs.Length; ++tickId)
             {
@@ -264,352 +235,47 @@ namespace Prediction.Tests
                 {
                     entity.BufferServerTick(tickId, serverTicks[tickId - serverDelay]);
                 }
-            }
-            
-            Assert.AreEqual(1, resimulationsCounter);
-            Assert.AreEqual(serverDelay, resimSteps);
-            Vector3[] expectedPosStream = ComputePosStream(serverInputs, posCorrections);
-            for (int i = 1; i < inputs.Length; ++i)
-            {
-                //TODO: can we make it sample on the same tick?
-                if (i < inputs.Length - 1)
-                    Assert.AreEqual(expectedPosStream[i], entity.localStateBuffer.Get(i).position);
-                Assert.AreEqual(inputs[i], GetInputFromInputRecord(entity.localInputBuffer.Get(i)));
-                if (i < inputs.Length - serverDelay)
-                    Assert.AreEqual(serverTicks[i].position, entity.serverStateBuffer.Get((uint) i).position);
-            }
-        }
-        
-        [Test]
-        public void TestMultiResimulationPrevention()
-        {
-            entity.protectFromOversimulation = true;
-            
-            int predictionAcceptable = 0;
-            entity.predictionAcceptable.AddEventListener((tr) =>
-            {
-                if (tr)
-                    predictionAcceptable++;
-            });
-            
-            PhysicsStateRecord psr = new PhysicsStateRecord();
-            Vector3 serverPos = Vector3.zero;
-            psr.rotation = Quaternion.identity;
-            for (uint tickId = 5; tickId < 105; ++tickId)
-            {
-                component.inputVector = Vector3.right * 2;
-                serverPos += Vector3.left * 2;
-                psr.position = serverPos;
-                entity.ClientSimulationTick(tickId);
-                entity.SamplePhysicsState(tickId);
-                psr.tickId = tickId - 4;
-                entity.BufferServerTick(tickId - 1, psr);
-            }
-            Assert.AreEqual(0, predictionAcceptable);
-            Assert.AreEqual(67, entity.totalSimulationSkips); //33% resimulations
-            Assert.AreEqual(33, entity.totalResimulations);
-        }
-        
-        [Test]
-        public void TestFollowerHappyPath()
-        {
-            entity.SetControlledLocally(false);
-            entity.subsequentCollisionsExtendInterval = true;
-            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
-            
-            //Reorder & Jump ahead & dropped package & duplication included
-            uint[] ticks = { 1, 2, 3, 6, 5, 7, 8, 11, 12, 9, 10, 13, 13, 13};
-            for (int i = 0; i < ticks.Length; ++i)
-            {
-                Vector3 serverPos = Vector3.left * i;
-                PhysicsStateRecord psr = new PhysicsStateRecord();
-                psr.tickId = ticks[i];
-                psr.position = serverPos;
-                psr.velocity = Vector3.zero;
-                psr.angularVelocity = Vector3.zero;
-                psr.rotation = Quaternion.identity;
-                entity.BufferFollowerServerTick(psr);
-                entity.ClientFollowerSimulationTick();
 
-                if (i > 11)
+                if (tickId == 4)
                 {
-                    Assert.AreEqual(Vector3.left * 11, rigidbody.position);   
+                    Assert.AreEqual(PredictionDecision.NOOP, entity.GetPredictionDecision(tickId, out uint ignore));
                 }
-                else if (i != 4 && i != 9 && i != 10)
+                if (tickId >= 5)
                 {
-                    Assert.AreEqual(serverPos, rigidbody.position);
+                    Assert.AreEqual(PredictionDecision.RESIMULATE, entity.GetPredictionDecision(tickId, out uint from));
+                    Assert.AreEqual(tickId - serverDelay, from);
                 }
             }
+        }
+
+        [Test]
+        public void TestResimulationDecision()
+        {
+            var serverInputs = new [] { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.right, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
+            var serverTicks = GenerateServerStates(serverInputs, rigidbody);
             
-            Assert.AreEqual(0, entity.totalBlendedFollowerTicks);
-            Assert.AreEqual(0, entity.totalBlendedFollowerTicksSnapTo);
-            Assert.AreEqual(9, entity.totalServerFollowerTicks);
+            component.inputVector = Vector3.zero;
+            entity.ClientSimulationTick(1);
+            entity.SamplePhysicsState(1);
+            Assert.AreEqual(PredictionDecision.NOOP, entity.GetPredictionDecision(1, out uint ignore0));
+            Assert.AreEqual(0, ignore0);
+            
+            entity.BufferServerTick(1, serverTicks[2]);
+            entity.BufferServerTick(1, serverTicks[3]);
+            
+            Assert.AreEqual(PredictionDecision.NOOP, entity.GetPredictionDecision(1, out uint ignore1));
+            Assert.AreEqual(PredictionDecision.NOOP, entity.GetPredictionDecision(2, out uint ignore2));
+            Assert.AreEqual(PredictionDecision.NOOP, entity.GetPredictionDecision(3, out uint ignore3));
+            Assert.AreEqual(PredictionDecision.RESIMULATE, entity.GetPredictionDecision(4, out uint ignore4));
+            Assert.AreEqual(PredictionDecision.RESIMULATE, entity.GetPredictionDecision(5, out uint ignore5));
+            Assert.AreEqual(0, ignore1);
+            Assert.AreEqual(0, ignore2);
+            Assert.AreEqual(0, ignore3);
+            Assert.AreEqual(3, ignore4);
+            Assert.AreEqual(3, ignore5);
         }
         
-        [Test]
-        public void TestFollowerMissingServerMessages()
-        {
-            entity.SetControlledLocally(false);
-            entity.subsequentCollisionsExtendInterval = true;
-            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
-            
-            Vector3 serverPos = Vector3.left;
-            uint[] ticks = { 1, 2, 3, 4};
-            uint[] postTicks = {5, 6, 7, 8};
-            for (int i = 0; i < ticks.Length; ++i)
-            {
-                serverPos = Vector3.left * i;
-                PhysicsStateRecord psr = new PhysicsStateRecord();
-                psr.tickId = ticks[i];
-                psr.position = serverPos;
-                psr.velocity = Vector3.zero;
-                psr.angularVelocity = Vector3.zero;
-                psr.rotation = Quaternion.identity;
-                
-                entity.BufferFollowerServerTick(psr);
-                entity.ClientFollowerSimulationTick();
-                Assert.AreEqual(serverPos, rigidbody.position);
-            }
-
-            for (int i = 0; i < 4; ++i)
-            {
-                entity.ClientFollowerSimulationTick();
-                Assert.AreEqual(serverPos, rigidbody.position);
-            }
-
-            for (int i = 0; i < postTicks.Length; ++i)
-            {
-                serverPos = Vector3.left * i;
-                PhysicsStateRecord psr = new PhysicsStateRecord();
-                psr.tickId = postTicks[i];
-                psr.position = serverPos;
-                psr.velocity = Vector3.zero;
-                psr.angularVelocity = Vector3.zero;
-                psr.rotation = Quaternion.identity;
-                
-                entity.BufferFollowerServerTick(psr);
-                entity.ClientFollowerSimulationTick();
-                Assert.AreEqual(serverPos, rigidbody.position);
-            }
-
-            Assert.AreEqual(0, entity.totalBlendedFollowerTicks);
-            Assert.AreEqual(0, entity.totalBlendedFollowerTicksSnapTo);
-            Assert.AreEqual(8, entity.totalServerFollowerTicks);
-        }
         //TODO: test larger packet drop? test repeated package?
-        
-        [Test]
-        public void TestBlendHappyPath()
-        {
-            entity.SetControlledLocally(false);
-            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
-            entity.MarkInteractionWithLocalAuthority();
-            entity.ClientFollowerSimulationTick();
-            entity.ClientFollowerSimulationTick(); //Do nothing while tick hasn't advanced via phys sim yet
-            uint expectedInterval = 12 * entity.blendIntervalMultiplier;
-            
-            Assert.AreEqual(0, entity.followerState.tickId);
-            Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
-            Assert.AreEqual(0, entity.followerState.overlapWithAuthorityStart);
-            Assert.AreEqual(expectedInterval, entity.followerState.overlapWithAuthorityEnd);
-            Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-
-            for (int i = 0; i < expectedInterval; ++i)
-            {
-                entity.SamplePhysicsState(0);
-                entity.ClientFollowerSimulationTick();
-                Assert.AreEqual(i + 1, entity.followerState.tickId);
-                Assert.AreEqual(0, entity.followerState.overlapWithAuthorityStart);
-                Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
-                Assert.AreEqual(expectedInterval, entity.followerState.overlapWithAuthorityEnd);
-                Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-            }
-            
-            entity.SamplePhysicsState(0);
-            entity.ClientFollowerSimulationTick();
-            Assert.AreEqual(expectedInterval + 1, entity.followerState.tickId);
-            Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
-            Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
-            
-            entity.SamplePhysicsState(0);
-            entity.ClientFollowerSimulationTick();
-            Assert.AreEqual(expectedInterval + 2, entity.followerState.tickId);
-            Assert.AreEqual(0, entity.followerState.lastAppliedServerTick);
-            Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
-            
-            Assert.AreEqual(expectedInterval, entity.totalBlendedFollowerTicks);
-            Assert.AreEqual(expectedInterval, entity.totalBlendedFollowerTicksSnapTo);
-        }
-
-        [Test]
-        public void TestBlendHappyPathMultipleInteractions()
-        {
-            entity.SetControlledLocally(false);
-            entity.subsequentCollisionsExtendInterval = true;
-            entity.collisionsResetBlendIntervalCompletely = false;
-            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
-            int tickPeriod = 12;
-            int totalTicks = tickPeriod * 10 + 5;
-            
-            for (int i = 0; i < totalTicks; ++i)
-            {
-                PhysicsStateRecord psr = new PhysicsStateRecord();
-                psr.tickId = (uint) i;
-                psr.position = Vector3.zero;
-                psr.velocity = Vector3.zero;
-                psr.angularVelocity = Vector3.zero;
-                psr.rotation = Quaternion.identity;
-                entity.BufferFollowerServerTick(psr);
-                
-                entity.SamplePhysicsState(0);
-                entity.ClientFollowerSimulationTick();
-                
-                if ((i > 0 && i < tickPeriod) || i == tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier + 1 || i > 60 + tickPeriod * entity.blendIntervalMultiplier + 2)
-                {
-                    Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
-                    Assert.AreEqual(i, entity.followerState.tickId);
-                    Assert.AreEqual(i, entity.followerState.lastAppliedServerTick);
-                }
-                
-                if (i == tickPeriod || i == tickPeriod + 3 || i == tickPeriod + 6 || i == 60)
-                {
-                    entity.MarkInteractionWithLocalAuthority();
-                }
-                
-                //TODO: deduplicate... extract to func.
-                if (i == tickPeriod + 1)
-                {
-                    Assert.AreEqual(tickPeriod + 1, entity.followerState.tickId);
-                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(entity.followerState.overlapWithAuthorityStart + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-                
-                if (i == tickPeriod + 3 + 1)
-                {
-                    Assert.AreEqual(tickPeriod + 3 + 1, entity.followerState.tickId);
-                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(tickPeriod + 3 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-                
-                if (i == tickPeriod + 6 + 1)
-                {
-                    Assert.AreEqual(tickPeriod + 6 + 1, entity.followerState.tickId);
-                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-                
-                if (i == 60 + 1)
-                {
-                    Assert.AreEqual(60 + 1, entity.followerState.tickId);
-                    Assert.AreEqual(60, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(60, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(60 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-            }
-
-            int totalBlendTicks = (int)(6 + 2 * tickPeriod * entity.blendIntervalMultiplier);
-            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicks);
-            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicksSnapTo);
-            Assert.AreEqual(totalTicks - totalBlendTicks - 1, entity.totalServerFollowerTicks);
-        }
-        
-         [Test]
-        public void TestBlendHappyPathMultipleInteractionsWithReset()
-        {
-            entity.SetControlledLocally(false);
-            entity.subsequentCollisionsExtendInterval = true;
-            entity.collisionsResetBlendIntervalCompletely = true;
-            PredictionManager.ROUND_TRIP_GETTER = () => 0.1f; //12 ticks
-            int tickPeriod = 12;
-            int totalTicks = tickPeriod * 10 + 5;
-            
-            for (int i = 0; i < totalTicks; ++i)
-            {
-                PhysicsStateRecord psr = new PhysicsStateRecord();
-                psr.tickId = (uint) i;
-                psr.position = Vector3.zero;
-                psr.velocity = Vector3.zero;
-                psr.angularVelocity = Vector3.zero;
-                psr.rotation = Quaternion.identity;
-                entity.BufferFollowerServerTick(psr);
-                
-                entity.SamplePhysicsState(0);
-                entity.ClientFollowerSimulationTick();
-                
-                if ((i > 0 && i < tickPeriod) || i == tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier + 1 || i > 60 + tickPeriod * entity.blendIntervalMultiplier + 2)
-                {
-                    Assert.AreEqual(false, entity.followerState.overlappingWithLocalAuthority);
-                    Assert.AreEqual(i, entity.followerState.tickId);
-                    Assert.AreEqual(i, entity.followerState.lastAppliedServerTick);
-                }
-                
-                if (i == tickPeriod || i == tickPeriod + 3 || i == tickPeriod + 6 || i == 60)
-                {
-                    entity.MarkInteractionWithLocalAuthority();
-                }
-                
-                //TODO: deduplicate... extract to func.
-                if (i == tickPeriod + 1)
-                {
-                    Assert.AreEqual(tickPeriod + 1, entity.followerState.tickId);
-                    Assert.AreEqual(tickPeriod, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(entity.followerState.overlapWithAuthorityStart + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-                
-                if (i == tickPeriod + 3 + 1)
-                {
-                    Assert.AreEqual(tickPeriod + 3 + 1, entity.followerState.tickId);
-                    Assert.AreEqual(tickPeriod + 3, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(tickPeriod + 3 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-                
-                if (i == tickPeriod + 6 + 1)
-                {
-                    Assert.AreEqual(tickPeriod + 6 + 1, entity.followerState.tickId);
-                    Assert.AreEqual(tickPeriod + 6, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(tickPeriod, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(tickPeriod + 6 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-                
-                if (i == 60 + 1)
-                {
-                    Assert.AreEqual(60 + 1, entity.followerState.tickId);
-                    Assert.AreEqual(60, entity.followerState.overlapWithAuthorityStart);
-                    Assert.AreEqual(60, entity.followerState.lastAppliedServerTick);
-                    Assert.AreEqual(60 + tickPeriod * entity.blendIntervalMultiplier, entity.followerState.overlapWithAuthorityEnd);
-                    Assert.AreEqual(true, entity.followerState.overlappingWithLocalAuthority);
-                }
-            }
-
-            int totalBlendTicks = (int)(6 + 2 * tickPeriod * entity.blendIntervalMultiplier);
-            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicks);
-            Assert.AreEqual(totalBlendTicks, entity.totalBlendedFollowerTicksSnapTo);
-            Assert.AreEqual(totalTicks - totalBlendTicks - 1, entity.totalServerFollowerTicks);
-        }
-        
-        [Test]
-        public void TestBlendEarlyExit()
-        {
-            //TODO
-        }
-        
-        [Test]
-        public void TestBlendSnapToCalls()
-        {
-            //TODO
-        }
     }
 }
 #endif

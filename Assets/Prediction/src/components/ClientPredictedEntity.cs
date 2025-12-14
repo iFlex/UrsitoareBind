@@ -1,23 +1,16 @@
 ﻿using System;
 using Assets.Scripts.Systems.Events;
 using Prediction.data;
-using Prediction.Simulation;
-using Prediction.StateBlend;
 using Prediction.utils;
 using UnityEngine;
 
 namespace Prediction
 {
     //TODO: document in readme
-    //TODO: add ability to switch from locally controlled to not locally controlled
     public class ClientPredictedEntity : AbstractPredictedEntity
     {
         public static bool DEBUG = false;
-        public static int BLENDING_ENTITIES_COUNTER = 0;
-        public static int RESMIS_DURING_BLEND = 0;
-        
         //STATE TRACKING
-        public uint maxAllowedAvgResimPerTick = 1;
         public GameObject gameObject;
 
         public Func<uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision>
@@ -33,9 +26,6 @@ namespace Prediction
             private set;
         }
         
-        //TODO: module private?
-        public PhysicsController physicsController;
-        
         //STATE
         //TODO: make visible for testing in tests assembly
         public RingBuffer<PredictionInputRecord> localInputBuffer;
@@ -43,31 +33,17 @@ namespace Prediction
         public RingBuffer<PhysicsStateRecord> localStateBuffer;
         //TODO: make visible for testing in tests assembly
         public TickIndexedBuffer<PhysicsStateRecord> serverStateBuffer;
-        //TODO: make visible for testing in tests assembly
-        public RingBuffer<PhysicsStateRecord> blendedFollowStateBuffer;
-        public RingBuffer<PhysicsStateRecord> followerStateBuffer;
-        
-        //TODO: make this hot swappable
-        public FollowerStateBlender followerStateBlender = new WeightedAverageBlender();
-        //public FollowerStateBlender followerStateBlender = new DefaultToClientSimBlender();
-        
-        public FollowerState followerState = new FollowerState();
-        
         private bool isServer;
         
         //This is used exclusively in follower mode (predicted entity not controlled by user).
-        public bool snapOnSimSkip = false;
-        public bool protectFromOversimulation = false;
-        public bool predictFollowers = true;
         public bool isControlledLocally { get; private set; }
         
         //STATS
         public uint totalTicks = 0;
-        public uint totalResimulationSteps = 0;
-        public uint totalResimulationStepsOverbudget = 0;
-        public uint totalResimulations = 0;
-        public uint totalSimulationSkips = 0;
-        public uint totalDesyncToSnapCount = 0;
+        public uint ticksAsFollower = 0;
+        public uint ticksAsLocalAuthority = 0;
+        public uint resimTicksAsAuthority = 0;
+        public uint resimTicksAsFollower = 0;
         
         public ClientPredictedEntity(bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -78,8 +54,6 @@ namespace Prediction
             
             localInputBuffer = new RingBuffer<PredictionInputRecord>(bufferSize);
             localStateBuffer = new RingBuffer<PhysicsStateRecord>(bufferSize);
-            blendedFollowStateBuffer = new RingBuffer<PhysicsStateRecord>(bufferSize);
-            followerStateBuffer = new RingBuffer<PhysicsStateRecord>(bufferSize);
             
             this.controllablePredictionContributors = controllablePredictionContributors ?? Array.Empty<PredictableControllableComponent>();
             this.predictionContributors = predictionContributors ?? Array.Empty<PredictableComponent>();
@@ -97,11 +71,7 @@ namespace Prediction
             {
                 localInputBuffer.Add(new PredictionInputRecord(totalFloatInputs, totalBinaryInputs));
                 localStateBuffer.Add(new PhysicsStateRecord());
-                blendedFollowStateBuffer.Add(new PhysicsStateRecord());
-                followerStateBuffer.Add(new PhysicsStateRecord());
             }
-            
-            followerState.Reset();
         }
         
         public void SetCustomEligibilityCheckHandler(Func<uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision> handler)
@@ -115,7 +85,7 @@ namespace Prediction
             resimulationEligibilityCheckHook = _defaultResimulationEligibilityCheck;
             singleStateResimulationEligibilityHook = handler;
         }
-        
+
         public PredictionInputRecord ClientSimulationTick(uint tickId)
         {
             if (!isControlledLocally)
@@ -126,14 +96,12 @@ namespace Prediction
             PredictionInputRecord inputRecord = SampleInput(tickId);
             LoadInput(inputRecord);
             ApplyForces();
+
+            ticksAsLocalAuthority++;
             totalTicks++;
-            if (totalResimulationStepsOverbudget > 0)
-            {
-                totalResimulationStepsOverbudget--;
-            }
             return inputRecord;
         }
-
+        
         public void ClientFollowerSimulationTick()
         {
             if (isControlledLocally)
@@ -141,18 +109,12 @@ namespace Prediction
                 throw new Exception("COMPONENT_MISUSE: locally controlled entity called ClientFollowerSimulationTick");
             }
             
-            if (!TickOverlapWithAuthority())
-            {
-                if (followerState.lastAppliedServerTick < serverStateBuffer.GetEndTick())
-                {
-                    totalServerFollowerTicks++;
-                    SnapTo(serverStateBuffer.GetEnd());
-                    followerState.lastAppliedServerTick = serverStateBuffer.GetEndTick();
-                    followerState.tickId = followerState.lastAppliedServerTick;
-                    if (DEBUG)
-                        Debug.Log($"[ClientPredictedEntity][Blend][ClientFollowerSimulationTick]({gameObject.GetInstanceID()}) FOLLOW_SERVER tickId:{followerState.tickId} data:{serverStateBuffer.GetEnd()}");
-                }
-            }
+            //TODO: get input from last state? :: inputRecord
+            //LoadInput(inputRecord);
+            //ApplyForces()
+
+            ticksAsFollower++;
+            totalTicks++;
         }
 
         PredictionInputRecord SampleInput(uint tickId)
@@ -180,16 +142,18 @@ namespace Prediction
             //NOTE: this samples the physics state of the predicted entity and stores it in the localStateBuffer as a side effect.
             PopulatePhysicsStateRecord(tickId, stateData);
             newStateReached.Dispatch(stateData);
-
-            if (!isControlledLocally)
-            {
-                stateData = followerStateBuffer.Get((int)followerState.tickId);
-                PopulatePhysicsStateRecord(followerState.tickId, stateData);
-                if (DEBUG)
-                    Debug.Log($"[ClientPredictedEntity][SamplePhysicsState] ({gameObject.GetInstanceID()}) tickId:{followerState.tickId} PhysicsSampled:{stateData}");
-                //TODO: can we reuse the localStateBuffer? it's a waste to have a completely separate one...
-                followerState.Sample();
-            }
+        }
+        
+        public virtual PredictionDecision GetPredictionDecision(uint lastAppliedTick, out uint fromTick)
+        {
+            fromTick = 0;
+            PhysicsStateRecord serverState = serverStateBuffer.GetEnd();
+            //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
+            if (serverState == null || lastAppliedTick <= serverState.tickId)
+                return PredictionDecision.NOOP;
+            
+            fromTick = serverState.tickId;
+            return resimulationEligibilityCheckHook(serverState.tickId, localStateBuffer, serverStateBuffer);
         }
 
         bool AddServerState(uint lastAppliedTick, PhysicsStateRecord serverRecord)
@@ -198,64 +162,13 @@ namespace Prediction
             serverStateBuffer.Add(serverRecord.tickId, serverRecord);
             return serverRecord.tickId == serverStateBuffer.GetEndTick();
         }
-
-        public void BufferFollowerServerTick(PhysicsStateRecord lastArrivedServerState)
-        {
-            if (isControlledLocally)
-                throw new Exception("COMPONENT_MISSUSE. Called BufferFollowerServerTick on locally controlled component");
-            AddServerState(followerState.lastAppliedServerTick, lastArrivedServerState);
-        }
         
         public void BufferServerTick(uint lastAppliedTick, PhysicsStateRecord serverState)
         {
-            if (!isControlledLocally)
-                throw new Exception("COMPONENT_MISSUSE. Called BufferServerTick on non locally controlled component");
-            
             if (DEBUG)
                 Debug.Log($"[ClientPredictedEntity][BufferServerTick](goId:{gameObject.GetInstanceID()}) lastTick:{lastAppliedTick}  serverState:{serverState}");
-            if (AddServerState(lastAppliedTick, serverState))
-            {
-                //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
-                if (lastAppliedTick < serverState.tickId)
-                    return;
-                
-                var resimulateFromLocalState = localStateBuffer.Get((int)serverState.tickId);
-                PredictionDecision decision = resimulationEligibilityCheckHook(serverState.tickId, localStateBuffer, serverStateBuffer);
-                if (DEBUG)
-                    Debug.Log($"[ClientPredictedEntity][Resimulate](goId:{gameObject.GetInstanceID()}) lat:{lastAppliedTick} decision:{decision} resims:{totalResimulations}");
-                switch (decision)
-                {
-                    case PredictionDecision.NOOP:
-                        predictionAcceptable.Dispatch(true);
-                        break;
-                    
-                    case PredictionDecision.RESIMULATE:
-                        Resimulate(lastAppliedTick, resimulateFromLocalState, serverState);
-                        break;
-                    
-                    case PredictionDecision.SNAP:
-                        totalDesyncToSnapCount++;
-                        SnapTo(serverState);
-                        break;
-                }
-                //TODO: consider a decision where we need to pause simulation on client to let server catch up...
-            }
-        }
 
-        void Resimulate(uint lastAppliedTick, PhysicsStateRecord local, PhysicsStateRecord server)
-        {
-            if (CanResiumlate())
-            {
-                ResimulateFrom(local.tickId, lastAppliedTick, server);
-            }
-            else
-            {
-                totalSimulationSkips++;
-                if (snapOnSimSkip)
-                {
-                    SnapTo(server);
-                }
-            }
+            AddServerState(lastAppliedTick, serverState);
         }
 
         PredictionDecision _defaultResimulationEligibilityCheck(uint tickId, RingBuffer<PhysicsStateRecord> clientStates,
@@ -266,75 +179,58 @@ namespace Prediction
             PhysicsStateRecord serverState = serverStates.Get(tickId);
             return singleStateResimulationEligibilityHook.Invoke(localState, serverState);
         }
+        
+        //TODO: unit test: including edgecases of no data.
+        public void SnapToServer(uint tickId)
+        {
+            PhysicsStateRecord state = serverStateBuffer.Get(tickId);
+            if (state == null)
+            {
+                //TODO: quantiy and log
+                return;
+            }
+            SnapTo(state);
+        }
 
         void SnapTo(PhysicsStateRecord serverState)
         {
             serverState.To(rigidbody);
         }
-        
-        void ResimulateFrom(uint startTick, uint lastAppliedTick, PhysicsStateRecord startState)
+
+        public void PreResimulationStep(uint tickId)
         {
-            if (BLENDING_ENTITIES_COUNTER > 0)
+            if (isControlledLocally)
             {
-                RESMIS_DURING_BLEND++;
+                PreResimulateAuthorityStep(tickId);
             }
-            
-            physicsController.BeforeResimulate(this);
-            resimulation.Dispatch(true);
-            physicsController.Rewind(lastAppliedTick - startTick);
-            
-            //Apply Server State
-            SnapTo(startState);
+            else
+            {
+                PreResimulationFollowerStep(tickId);
+            }
+        }
+
+        void PreResimulateAuthorityStep(uint tickId)
+        {
+            resimulationStep.Dispatch(true);
+            //TODO: correct conversion of tickId to index plz
+            PredictionInputRecord inputData = localInputBuffer.Get((int) tickId);
+            LoadInput(inputData);
+            ApplyForces();
+            resimTicksAsAuthority++;
+        }
+        
+        void PreResimulationFollowerStep(uint tickId)
+        {
+            resimTicksAsFollower++;
+            //TODO: do we need anything here?
+        }
+        
+        public void PostResimulationStep(uint tickId)
+        {
             //TODO: check conversion to int
-            PhysicsStateRecord record = localStateBuffer.Get((int) startTick);
-            PopulatePhysicsStateRecord(startTick, record);
-            
-            uint index = startTick + 1;
-            while (index <= lastAppliedTick)
-            {
-                resimulationStep.Dispatch(true);
-                
-                //TODO: correct conversion of tickId to index plz
-                PredictionInputRecord inputData = localInputBuffer.Get((int) index);
-                LoadInput(inputData);
-                ApplyForces();
-                physicsController.Resimulate(this);
-                //TODO: check conversion to int
-                record = localStateBuffer.Get((int) index);
-                PopulatePhysicsStateRecord(index, record);
-
-                index++;
-                totalResimulationSteps++;
-                totalResimulationStepsOverbudget++;
-                resimulationStep.Dispatch(false);
-            }
-            
-            totalResimulations++;
-            resimulation.Dispatch(false);
-            physicsController.AfterResimulate(this);
-        }
-        
-        public uint GetTotalTicks()
-        {
-            return totalTicks;
-        }
-        
-        public uint GetAverageResimPerTick()
-        {
-            if (totalTicks == 0)
-                return 0;
-            return totalResimulationSteps / totalTicks;
-        }
-        
-        bool CanResiumlate()
-        {
-            //return !protectFromOversimulation || () < maxAllowedAvgResimPerTick;
-            return !protectFromOversimulation || totalResimulationStepsOverbudget == 0;
-        }
-
-        public uint GetResimulationOverbudget()
-        {
-            return totalResimulationStepsOverbudget;
+            PhysicsStateRecord record = localStateBuffer.Get((int) tickId);
+            PopulatePhysicsStateRecord(tickId, record);
+            resimulationStep.Dispatch(false);
         }
 
         public uint GetServerDelay()
@@ -353,138 +249,16 @@ namespace Prediction
             localInputBuffer.Clear();
             localStateBuffer.Clear();
             serverStateBuffer.Clear();
-            blendedFollowStateBuffer.Clear();
-            followerState.Reset();
-            followerStateBlender?.Reset();
             isControlledLocally = false;
             //TODO: consider if this is needed? it probably is
             //interpolationsProvider.Clear();
             
             totalTicks = 0;
-            totalResimulationSteps = 0;
-            totalResimulationStepsOverbudget = 0;
-            totalResimulations = 0;
-            totalSimulationSkips = 0;
-            totalDesyncToSnapCount = 0;
         }
-        
-        public bool subsequentCollisionsExtendInterval = false;
-        public bool collisionsResetBlendIntervalCompletely = false;
-        public uint blendIntervalMultiplier = 3;
 
         public uint totalInteractionsWithLocalAuthority = 0;
-        public uint totalBlendedFollowerTicks = 0;
-        public uint totalBlendedFollowerTicksSnapTo = 0;
-        public uint totalServerFollowerTicks = 0;
         
-        //NOTE: external entry point
-        public void MarkInteractionWithLocalAuthority()
-        {
-            if (!predictFollowers)
-                return;
-            
-            totalInteractionsWithLocalAuthority++;
-            if (!subsequentCollisionsExtendInterval && followerState.overlappingWithLocalAuthority)
-                return;
-
-            bool isSubsequentInteraction = followerState.overlappingWithLocalAuthority;
-            //TODO: wire this getter in or wire in the prediction manager (however that's coupling)
-            uint serverLatencyInTicks = PredictionManager.GetServerTickDelay() * blendIntervalMultiplier;
-            if (DEBUG)
-                Debug.Log($"[ClientPredictedEntity][Blend][MarkInteractionWithLocalAuthority](goId:{gameObject.GetInstanceID()}) delay:{serverLatencyInTicks} totalInter:{totalInteractionsWithLocalAuthority} tickId:{followerState.tickId}");
-
-            if (!isSubsequentInteraction || collisionsResetBlendIntervalCompletely)
-            {
-                followerState.overlapWithAuthorityStart = followerState.tickId;
-            }
-            followerState.overlapWithAuthorityEnd = followerState.tickId + serverLatencyInTicks;
-            
-            if (!followerState.overlappingWithLocalAuthority)
-            {
-                BLENDING_ENTITIES_COUNTER++;
-            }
-            //TODO: think well about subsequent colisions, we don't want to overwrite them with the SnapTo phase...
-            //For now only the first collision in blended window triggers this
-            //TODO: consider externally applied forces
-            followerState.overlappingWithLocalAuthority = true;
-            interactedWithLocalAuthority.Dispatch(true);
-        }
-
-        bool TickOverlapWithAuthority()
-        {
-            if (DEBUG)
-                Debug.Log($"[ClientPredictedEntity][Blend][TickOverlapWithAuthority][1](goId:{gameObject.GetInstanceID()}) overlapping:{followerState.overlappingWithLocalAuthority} tickId:{followerState.tickId} end:{followerState.overlapWithAuthorityEnd}");
-            
-            if (!followerState.overlappingWithLocalAuthority)
-                return false;
-
-            if (followerState.tickId > followerState.overlapWithAuthorityEnd)
-            {
-                followerState.Cancel();
-                return false;
-            }
-            
-            if (followerStateBlender != null && followerState.tickId != followerState.overlapWithAuthorityStart)
-            {
-                totalBlendedFollowerTicks++;
-                if (followerStateBlender.BlendStep(followerState, blendedFollowStateBuffer, followerStateBuffer,
-                        serverStateBuffer))
-                {
-                    totalBlendedFollowerTicksSnapTo++;
-                    PhysicsStateRecord record = blendedFollowStateBuffer.Get((int) followerState.tickId);
-                    SnapTo(record);
-                    if (DEBUG)
-                        Debug.Log($"[ClientPredictedEntity][Blend][TickOverlapWithAuthority][2](goId:{gameObject.GetInstanceID()}) BlendedTick({record}) tickId:{followerState.tickId}");
-                }
-                else if (DEBUG)
-                {
-                    Debug.Log($"[ClientPredictedEntity][Blend][TickOverlapWithAuthority][2](goId:{gameObject.GetInstanceID()}) BlendedTick(APPLY_SKIPPED) tickId:{followerState.tickId}");
-                }
-            }
-            else if (DEBUG)
-            {
-                Debug.Log($"[ClientPredictedEntity][Blend][TickOverlapWithAuthority][2](goId:{gameObject.GetInstanceID()}) BlendedTick([SKIP]) tickId:{followerState.tickId}");
-            }
-            return true;
-        }
-
-        public class FollowerState
-        {
-            public uint lastAppliedServerTick;
-            public bool overlappingWithLocalAuthority;
-            public uint overlapWithAuthorityEnd;
-            public uint overlapWithAuthorityStart;
-            public uint tickId;
-            
-            public void Reset()
-            {
-                //TODO: do we need both tick and lastApplied?
-                tickId = 0;
-                lastAppliedServerTick = 0;
-                
-                overlappingWithLocalAuthority = false;
-                overlapWithAuthorityEnd = 0;
-                overlapWithAuthorityStart = 0;
-            }
-            
-            public void Cancel()
-            {
-                if (overlappingWithLocalAuthority)
-                {
-                    BLENDING_ENTITIES_COUNTER--;
-                }
-                overlappingWithLocalAuthority = false;
-            }
-
-            public void Sample()
-            {
-                tickId++;
-            }
-        }
-        
-        public SafeEventDispatcher<bool> interactedWithLocalAuthority = new();
         public SafeEventDispatcher<PhysicsStateRecord> newStateReached = new();
-        public SafeEventDispatcher<bool> predictionAcceptable = new();
         public SafeEventDispatcher<bool> resimulation = new();
         public SafeEventDispatcher<bool> resimulationStep = new();
     }

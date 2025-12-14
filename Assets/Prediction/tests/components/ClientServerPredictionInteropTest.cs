@@ -23,6 +23,7 @@ namespace Prediction.Tests
         public static MockPhysicsController physicsController;
         public static SimpleConfigurableResimulationDecider resimDecider = new SimpleConfigurableResimulationDecider();
         
+        //TODO: these tests may not be relevant
         [SetUp]
         public void SetUp()
         {
@@ -37,7 +38,6 @@ namespace Prediction.Tests
             
             clientEntity = new ClientPredictedEntity(false,20, clientRigidbody, client, new []{clientComponent}, new[]{clientComponent});
             clientEntity.SetSingleStateEligibilityCheckHandler(resimDecider.Check);
-            clientEntity.physicsController = physicsController;
             clientEntity.SetControlledLocally(true);
             
             server = new GameObject("test");

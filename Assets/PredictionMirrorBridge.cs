@@ -186,7 +186,7 @@ namespace DefaultNamespace
                 Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
             
             //data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
-            predictionManager.OnFollowerServerStateReceived(entityNetId, data);
+            predictionManager.OnServerStateReceived(entityNetId, data);
         }
         
         [ClientRpc(channel = Channels.Unreliable)]
@@ -196,7 +196,7 @@ namespace DefaultNamespace
                 Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
             
             //data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
-            predictionManager.OnFollowerServerStateReceived(entityNetId, data);
+            predictionManager.OnServerStateReceived(entityNetId, data);
         }
         
         [ClientRpc]
@@ -206,7 +206,7 @@ namespace DefaultNamespace
                 Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
             
             //data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
-            predictionManager.OnFollowerServerStateReceived(entityNetId, data);
+            predictionManager.OnServerStateReceived(entityNetId, data);
         }
 
         public PredictedNetworkBehaviour GetOriginalOwnedObject(int connectionId)
