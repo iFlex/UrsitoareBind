@@ -8,6 +8,7 @@ using Assert = UnityEngine.Assertions.Assert;
 
 namespace Prediction.Tests
 {
+    //TODO: interpo test should be a PredictionManager test.
     public class ClientServerPredictionInteropTest
     {
         public static GameObject client;
@@ -36,7 +37,7 @@ namespace Prediction.Tests
             clientComponent = new MockPredictableControllableComponent();
             clientComponent.rigidbody = clientRigidbody;
             
-            clientEntity = new ClientPredictedEntity(false,20, clientRigidbody, client, new []{clientComponent}, new[]{clientComponent});
+            clientEntity = new ClientPredictedEntity(0, false,20, clientRigidbody, client, new []{clientComponent}, new[]{clientComponent});
             clientEntity.SetSingleStateEligibilityCheckHandler(resimDecider.Check);
             clientEntity.SetControlledLocally(true);
             
@@ -47,7 +48,7 @@ namespace Prediction.Tests
             serverComponent = new MockPredictableControllableComponent();
             serverComponent.rigidbody = serverRigidbody;
             
-            serverEntity = new ServerPredictedEntity(20, serverRigidbody, server, new []{serverComponent}, new[]{serverComponent});
+            serverEntity = new ServerPredictedEntity(0 ,20, serverRigidbody, server, new []{serverComponent}, new[]{serverComponent});
             serverEntity.useBuffering = false;
         }
         
@@ -61,7 +62,8 @@ namespace Prediction.Tests
                 PredictionInputRecord record = clientEntity.ClientSimulationTick(tickId);
                 clientEntity.SamplePhysicsState(tickId);
                 serverEntity.BufferClientTick(tickId, record);
-                PhysicsStateRecord serverRecord = serverEntity.ServerSimulationTick();
+                serverEntity.ServerSimulationTick();
+                PhysicsStateRecord serverRecord = serverEntity.SamplePhysicsState();
                 clientEntity.BufferServerTick(tickId, serverRecord);
                 Assert.AreEqual(serverRecord.position, clientRigidbody.position);
                 Assert.AreEqual(serverRigidbody.position, clientRigidbody.position);
@@ -79,7 +81,7 @@ namespace Prediction.Tests
                 if (started)
                     resimulationsCounter++;
             });
-            
+            //TODO: fix
             uint delay = 3;
             for (uint tickId = 1; tickId < delay; ++tickId)
             {
@@ -94,7 +96,8 @@ namespace Prediction.Tests
                 PredictionInputRecord record = clientEntity.ClientSimulationTick(tickId);
                 clientEntity.SamplePhysicsState(tickId);
                 serverEntity.BufferClientTick(tickId, record);
-                PhysicsStateRecord serverRecord = serverEntity.ServerSimulationTick();
+                serverEntity.ServerSimulationTick();
+                PhysicsStateRecord serverRecord = serverEntity.SamplePhysicsState();
                 clientEntity.BufferServerTick(tickId, serverRecord);
             }
             clientComponent.rigidbody = null;
@@ -104,7 +107,8 @@ namespace Prediction.Tests
                 PredictionInputRecord record = clientEntity.ClientSimulationTick(tickId);
                 clientEntity.SamplePhysicsState(tickId);
                 serverEntity.BufferClientTick(tickId, record);
-                PhysicsStateRecord serverRecord = serverEntity.ServerSimulationTick();
+                serverEntity.ServerSimulationTick();
+                PhysicsStateRecord serverRecord = serverEntity.SamplePhysicsState();
                 clientEntity.BufferServerTick(tickId, serverRecord);
             }
 

@@ -48,11 +48,11 @@ namespace Prediction.wrappers
         {
             if (IsClient())
             {
-                PredictionManager.Instance.AddPredictedEntity(GetId(), GetClientEntity());
+                PredictionManager.Instance.AddPredictedEntity(GetClientEntity());
             }
             if (IsServer())
             {
-                PredictionManager.Instance.AddPredictedEntity(GetId(), GetServerEntity());
+                PredictionManager.Instance.AddPredictedEntity(GetServerEntity());
                 PredictionManager.Instance.SetEntityOwner(GetServerEntity(), GetOwnerId());
             }
         }

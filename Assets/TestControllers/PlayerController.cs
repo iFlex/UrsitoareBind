@@ -96,15 +96,18 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
         
         if (predictedMono.IsControlledLocally() && SingletonUtils.instance.clientText)
         {
-            SingletonUtils.instance.clientText.text = $"Tick:{predictedMono.clientPredictedEntity.totalTicks}\n " + 
+            SingletonUtils.instance.clientText.text = $"Tick:{PredictionManager.Instance.lastClientAppliedTick}\n " + 
                                                       $"ServerDelay:{predictedMono.clientPredictedEntity.GetServerDelay()}\n " +
                                                       $"Resimulations:{PredictionManager.Instance.totalResimulations}\n " +
+                                                      $"AuthResims:{PredictionManager.Instance.totalResimulationsDueToAuthority}\n " +
+                                                      $"FlwrResims:{PredictionManager.Instance.totalResimulationsDueToFollowers}\n " +
+                                                      $"BothResims:{PredictionManager.Instance.totalResimulationsDueToBoth}\n " +
                                                       $"AvgResimLen:{PredictionManager.Instance.GetAverageResimPerTick()} " +
                                                       $"TotalResimSteps:{PredictionManager.Instance.totalResimulationSteps}\n " +
                                                       $"Skips:{PredictionManager.Instance.totalSimulationSkips}\n " +
                                                       $"Velo:{predictedMono.clientPredictedEntity.rigidbody.linearVelocity.magnitude}\n " +
-                                                      $"DistThres:{((SimpleConfigurableResimulationDecider)PredictionManager.SNAPSHOT_INSTANCE_RESIM_CHECKER).distResimThreshold}\n " +
-                                                      $"SmoothWindow:{(SingletonUtils.localVisInterpolator != null ? SingletonUtils.localVisInterpolator.slidingWindowTickSize : -1)}\n " +
+                                                      $"DIST_TRES:{((SimpleConfigurableResimulationDecider)PredictionManager.SNAPSHOT_INSTANCE_RESIM_CHECKER).distResimThreshold}\n " +
+                                                      $"SMOOTH_WNDW:{(SingletonUtils.localVisInterpolator != null ? SingletonUtils.localVisInterpolator.slidingWindowTickSize : -1)}\n " +
                                                       $"FPS:{1/Time.deltaTime}\n " +
                                                       $"FrameTime:{Time.deltaTime}\n";
 
@@ -113,7 +116,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
                 if (cpe.gameObject != predictedMono.gameObject)
                 {
                     SingletonUtils.instance.clientText.text +=
-                        $"\n\nTotalInteractionsWithAuth:{cpe.totalInteractionsWithLocalAuthority}\n";
+                        $"\nResimsAuth:{cpe.resimTicksAsAuthority} ResimsFlwr:{cpe.resimTicksAsFollower}\n";
                 }
             }
         }

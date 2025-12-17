@@ -25,7 +25,6 @@ namespace DefaultNamespace
         private Dictionary<int, PredictedNetworkBehaviour> ownership = new Dictionary<int, PredictedNetworkBehaviour>();
         private Dictionary<uint, int> entityIdToOwner = new Dictionary<uint, int>();
         
-        public bool reliable = false;
         public int resimCounter = 0;
         private bool setSendRate = false;
         public int sendRateMultiplier = 1;
@@ -63,7 +62,6 @@ namespace DefaultNamespace
 
         private void Start()
         {
-            predictionManager.Setup(isServer, isClient);
             PredictionManager.ROUND_TRIP_GETTER = () => NetworkTime.rtt;
             if (isClient)
             {
@@ -72,30 +70,50 @@ namespace DefaultNamespace
                     if (MSG_DEBUG)
                         Debug.Log($"[PredictionMirrorBridge][clientStateSender] SEND client_report: tickId:{tickId} data:{data}");
                     
-                    if (reliable)
-                    {
-                        ReportToServerReliable(tickId, data);
-                    }
-                    else
-                    {
-                        ReportToServerUnreliable(tickId, data);
-                    }
+                    ReportToServerUnreliable(tickId, data);
                 };
             }
             
             if (isServer)
             {
-                predictionManager.serverStateSender = (entityNetId, serverTick, data) =>
+                predictionManager.connectionsIterator = () => NetworkServer.connections.Keys;
+                predictionManager.serverStateSender = (connId, entityId, data) =>
                 {
                     if (MSG_DEBUG)
-                        Debug.Log($"[PredictionMirrorBridge][clientStateSender] SEND server_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
-                    SendTargetedReportFromServer(entityNetId, serverTick, data, reliable);
+                        Debug.Log($"[PredictionMirrorBridge][clientStateSender] SEND server_report: netId:{entityId} tickId:{data.tickId} data:{data}");
+                    
+                    NetworkConnectionToClient netconn = NetworkServer.connections.GetValueOrDefault(connId, null);
+                    if (netconn != null)
+                    {
+                        TargetedReportFromServerUnreliable(netconn, entityId, data);
+                    }
+                    else if (connId != 0)
+                    {
+                        //TODO: report?
+                    }
+                };
+                
+                predictionManager.serverWorldStateSender = (connId, data) =>
+                {
+                    if (MSG_DEBUG)
+                        Debug.Log($"[PredictionMirrorBridge][serverWorldStateSender] SEND server_world_report: connId:{connId} data:{data}");
+                    
+                    NetworkConnectionToClient netconn = NetworkServer.connections.GetValueOrDefault(connId, null);
+                    if (netconn != null)
+                    {
+                        TargetedWorldReportFromServerUnreliable(netconn, data);
+                    }
+                    else if (connId != 0)
+                    {
+                        //TODO: report?
+                    }
                 };
                 
                 sharedGO = Instantiate(sharedGOPrefab, Vector3.one, Quaternion.identity);
                 NetworkServer.Spawn(sharedGO);
                 sharedPredMono = sharedGO.GetComponent<PredictedNetworkBehaviour>();
             }
+            predictionManager.Setup(isServer, isClient);
         }
         
         void OnSpawned(PlayerController entity)
@@ -137,7 +155,7 @@ namespace DefaultNamespace
                 foreach (KeyValuePair<ServerPredictedEntity, uint> pair in predictionManager._serverEntityToId)
                 {
                     //TODO: NOTE: i think elements remain in the buffer somehow and cause the range: reading to be incorrect and keep going up...
-                    serverText.text += $"id:{pair.Value} skipped:{pair.Key.ticksWithoutInput} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps}\n";
+                    serverText.text += $"connId:{entityIdToOwner.GetValueOrDefault(pair.Value, -1)} id:{pair.Value} tickId:{pair.Key.GetTickId()} skipped:{pair.Key.ticksWithoutInput} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps}\n";
                 }
             }
 
@@ -151,64 +169,26 @@ namespace DefaultNamespace
         void ReportToServerUnreliable(uint tickId, PredictionInputRecord data, NetworkConnectionToClient sender = null)
         {
             if (MSG_DEBUG)
-                Debug.Log($"[PredictionMirrorBridge][ReportToServer] Received client_report: tickId:{tickId} sender:{sender} data:{data}");
+                Debug.Log($"[PredictionMirrorBridge][ReportToServerUnreliable] Received client_report: tickId:{tickId} sender:{sender} data:{data}");
             predictionManager.OnClientStateReceived(sender.connectionId, tickId, data);
-        }
-        
-        [Command(requiresAuthority = false)]
-        void ReportToServerReliable(uint tickId, PredictionInputRecord data, NetworkConnectionToClient sender = null)
-        {
-            if (MSG_DEBUG)
-                Debug.Log($"[PredictionMirrorBridge][ReportToServer] Received client_report: tickId:{tickId} sender:{sender} data:{data}");
-            predictionManager.OnClientStateReceived(sender.connectionId, tickId, data);
-        }
-        
-        [Server]
-        void SendTargetedReportFromServer(uint entityNetId, uint serverTickId, PhysicsStateRecord data, bool reliable)
-        {
-            int owner = entityIdToOwner.GetValueOrDefault(entityNetId, 0);
-            TargetedReportFromServerUnreliable(NetworkServer.connections[owner], entityNetId, data);
-            
-            data.tickId = serverTickId;
-            foreach (NetworkConnectionToClient clientConn in NetworkServer.connections.Values)
-            {
-                if (clientConn.connectionId != owner)
-                {
-                    TargetedReportFromServerUnreliable(clientConn, entityNetId, data);
-                }
-            }
         }
         
         [TargetRpc(channel = Channels.Unreliable)]
         void TargetedReportFromServerUnreliable(NetworkConnectionToClient receiver, uint entityNetId, PhysicsStateRecord data)
         {
             if (MSG_DEBUG)
-                Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
-            
-            //data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
+                Debug.Log($"[PredictionMirrorBridge][TargetedReportFromServerUnreliable] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
             predictionManager.OnServerStateReceived(entityNetId, data);
         }
         
-        [ClientRpc(channel = Channels.Unreliable)]
-        void ReportFromServerUnreliable(uint entityNetId, PhysicsStateRecord data)
+        [TargetRpc(channel = Channels.Unreliable)]
+        void TargetedWorldReportFromServerUnreliable(NetworkConnectionToClient receiver, WorldStateRecord data)
         {
             if (MSG_DEBUG)
-                Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
-            
-            //data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
-            predictionManager.OnServerStateReceived(entityNetId, data);
+                Debug.Log($"[PredictionMirrorBridge][TargetedWorldReportFromServerUnreliable] Received server_report: data:{data}");
+            predictionManager.OnServerWorldStateReceived(data);
         }
         
-        [ClientRpc]
-        void ReportFromServerReliable(uint entityNetId, PhysicsStateRecord data)
-        {
-            if (MSG_DEBUG)
-                Debug.Log($"[PredictionMirrorBridge][ReportFromServer] Received serrver_report: netId:{entityNetId} tickId:{data.tickId} data:{data}");
-            
-            //data.tmpServerTime = NetworkClient.connection.remoteTimeStamp;
-            predictionManager.OnServerStateReceived(entityNetId, data);
-        }
-
         public PredictedNetworkBehaviour GetOriginalOwnedObject(int connectionId)
         {
             return originalOwnership.GetValueOrDefault(connectionId, null);

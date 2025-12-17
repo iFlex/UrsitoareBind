@@ -76,19 +76,19 @@ namespace Prediction.wrappers
 
         void ConfigureAsServer()
         {
-            serverPredictedEntity = new ServerPredictedEntity(bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            serverPredictedEntity = new ServerPredictedEntity(netId, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
         }
 
         void ConfigureAsClient(bool controlledLocally)
         {
-            clientPredictedEntity = new ClientPredictedEntity(false, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            clientPredictedEntity = new ClientPredictedEntity(netId, false, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             SetControlledLocally(controlledLocally);
             visuals.SetClientPredictedEntity(clientPredictedEntity, PredictionManager.INTERPOLATION_PROVIDER());
         }
 
         void ConfigureAsServerClient(bool controlledLocally)
         {
-            clientPredictedEntity = new ClientPredictedEntity(true, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            clientPredictedEntity = new ClientPredictedEntity(netId, true, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             SetControlledLocally(controlledLocally);
         }
         

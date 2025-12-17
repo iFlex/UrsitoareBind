@@ -8,8 +8,8 @@ namespace Prediction.Tests.Mocks
         public uint _fromTick;
         public PredictionDecision _predictionDecision;
         
-        public MockClientPredictedEntity(bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : 
-            base(isServer, bufferSize, rb, visuals, controllablePredictionContributors, predictionContributors)
+        public MockClientPredictedEntity(uint id, bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : 
+            base(id, isServer, bufferSize, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
         }
         

@@ -45,7 +45,7 @@ namespace Prediction
         public uint resimTicksAsAuthority = 0;
         public uint resimTicksAsFollower = 0;
         
-        public ClientPredictedEntity(bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
+        public ClientPredictedEntity(uint id, bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
             rigidbody = rb;
             gameObject = rb.gameObject;
@@ -254,8 +254,6 @@ namespace Prediction
             
             totalTicks = 0;
         }
-
-        public uint totalInteractionsWithLocalAuthority = 0;
         
         public SafeEventDispatcher<PhysicsStateRecord> newStateReached = new();
         public SafeEventDispatcher<bool> resimulation = new();

@@ -41,7 +41,7 @@ namespace Prediction
         public uint lateTickCount = 0;
         public uint totalSnapAheadCounter = 0;
         
-        public ServerPredictedEntity(int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(rb, visuals, controllablePredictionContributors, predictionContributors)
+        public ServerPredictedEntity(uint id, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
             gameObject = rb.gameObject;
             //TODO: configurable how much to wait before sim start...
@@ -62,8 +62,9 @@ namespace Prediction
 
         private uint lastAppliedTick = 0;
         public int inputJumps = 0;
-        public PhysicsStateRecord ServerSimulationTick()
+        public uint ServerSimulationTick()
         {
+            //NOTE: this also loads TickId with the latest value
             PredictionInputRecord nextInput = TakeNextInput();
             if (DEBUG)
                 Debug.Log($"[ServerPredictedEntity][ServerSimulationTick] goID:{gameObject.GetInstanceID()} lastAppliedTick:{lastAppliedTick} buffRange:{inputQueue.GetRange()} buffFill:{inputQueue.GetFill()} nextInput:{nextInput}");
@@ -91,6 +92,11 @@ namespace Prediction
             }
             ApplyForces();
             Tick();
+            return GetTickId();
+        }
+        
+        public PhysicsStateRecord SamplePhysicsState()
+        {
             PopulatePhysicsStateRecord(GetTickId(), serverStateBfr);
             return serverStateBfr;
         }

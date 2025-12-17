@@ -34,13 +34,13 @@ namespace Prediction.wrappers
 
         void ConfigureAsServer()
         {
-            serverPredictedEntity = new ServerPredictedEntity(bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            serverPredictedEntity = new ServerPredictedEntity((uint) GetInstanceID(), bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
         }
 
         void ConfigureAsClient(bool controlledLocally)
         {
             //TODO: detect or wire components
-            clientPredictedEntity = new ClientPredictedEntity(false, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            clientPredictedEntity = new ClientPredictedEntity((uint) GetInstanceID(),false, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             clientPredictedEntity.gameObject = gameObject;
             //TODO: configurable interpolator
             visuals.SetClientPredictedEntity(clientPredictedEntity, new MovingAverageInterpolator());

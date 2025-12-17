@@ -45,19 +45,19 @@ namespace Prediction.Tests
         public void TestResimulationDecision()
         {
             PredictionManager tstManager = new PredictionManager();
-            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
-            MockClientPredictedEntity mock2 = new MockClientPredictedEntity(false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
-            MockClientPredictedEntity mock3 = new MockClientPredictedEntity(false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
-            MockClientPredictedEntity mock4 = new MockClientPredictedEntity(false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
-            MockClientPredictedEntity mock5 = new MockClientPredictedEntity(false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
-            MockClientPredictedEntity mock6 = new MockClientPredictedEntity(false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(0, false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            MockClientPredictedEntity mock2 = new MockClientPredictedEntity(1,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            MockClientPredictedEntity mock3 = new MockClientPredictedEntity(2,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            MockClientPredictedEntity mock4 = new MockClientPredictedEntity(3,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            MockClientPredictedEntity mock5 = new MockClientPredictedEntity(4,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
+            MockClientPredictedEntity mock6 = new MockClientPredictedEntity(5,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
             
-            tstManager.AddPredictedEntity(1, mock1);
-            tstManager.AddPredictedEntity(2, mock2);
-            tstManager.AddPredictedEntity(3, mock3);
-            tstManager.AddPredictedEntity(4, mock4);
-            tstManager.AddPredictedEntity(5, mock5);
-            tstManager.AddPredictedEntity(6, mock6);
+            tstManager.AddPredictedEntity(mock1);
+            tstManager.AddPredictedEntity(mock2);
+            tstManager.AddPredictedEntity(mock3);
+            tstManager.AddPredictedEntity(mock4);
+            tstManager.AddPredictedEntity(mock5);
+            tstManager.AddPredictedEntity(mock6);
             
             mock1._predictionDecision = PredictionDecision.NOOP;       
             mock2._predictionDecision = PredictionDecision.SNAP;
@@ -133,14 +133,15 @@ namespace Prediction.Tests
         {
             PredictionManager tstManager = new PredictionManager();
             PredictionManager.PHYSICS_CONTROLLED = physicsController;
+            tstManager.clientStateSender = (a, b) => { };
             tstManager.Setup(false, true);
             
-            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(false, 20, rigidbody, test, new []{component}, new[]{component});
+            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(1, false, 20, rigidbody, test, new []{component}, new[]{component});
             mock1.SetControlledLocally(true);
             mock1.SetSingleStateEligibilityCheckHandler(resimDecider.Check);
             mock1.decisionPassThrough = true;
             
-            tstManager.AddPredictedEntity(1, mock1);
+            tstManager.AddPredictedEntity(mock1);
             tstManager.SetLocalEntity(1);
             
             var inputs = new []       { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.right,  Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.right,   Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
@@ -182,14 +183,15 @@ namespace Prediction.Tests
             //TODO: move to setup?
             PredictionManager tstManager = new PredictionManager();
             PredictionManager.PHYSICS_CONTROLLED = physicsController;
+            tstManager.clientStateSender = (a, b) => { };
             tstManager.Setup(false, true);
             
-            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(false, 20, rigidbody, test, new []{component}, new[]{component});
+            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(1, false, 20, rigidbody, test, new []{component}, new[]{component});
             mock1.SetControlledLocally(true);
             mock1.SetSingleStateEligibilityCheckHandler(resimDecider.Check);
             mock1.decisionPassThrough = true;
             
-            tstManager.AddPredictedEntity(1, mock1);
+            tstManager.AddPredictedEntity(mock1);
             tstManager.SetLocalEntity(1);
             
             var inputs = new []       { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up,    Vector3.right, Vector3.up, Vector3.right, Vector3.up };
@@ -225,19 +227,21 @@ namespace Prediction.Tests
             }
         }
         
+        //TODO: implement protection!
         [Test]
         public void TestMultiResimulationPrevention()
         {
             PredictionManager tstManager = new PredictionManager();
             PredictionManager.PHYSICS_CONTROLLED = physicsController;
+            tstManager.clientStateSender = (a, b) => { };
             tstManager.Setup(false, true);
             
-            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(false, 20, rigidbody, test, new []{component}, new[]{component});
+            MockClientPredictedEntity mock1 = new MockClientPredictedEntity(1, false, 20, rigidbody, test, new []{component}, new[]{component});
             mock1.SetControlledLocally(true);
             mock1.SetSingleStateEligibilityCheckHandler(resimDecider.Check);
             mock1.decisionPassThrough = true;
             
-            tstManager.AddPredictedEntity(1, mock1);
+            tstManager.AddPredictedEntity(mock1);
             tstManager.SetLocalEntity(1);
             tstManager.protectFromOversimulation = true;
             

@@ -7,15 +7,17 @@ namespace Prediction
     {
         public Rigidbody rigidbody;
         protected GameObject detachedVisualsIdentity;
-        
+        public uint id { get; private set; }
+
         protected PredictableControllableComponent[] controllablePredictionContributors;
         protected PredictableComponent[] predictionContributors;
 
         protected int totalFloatInputs = 0;
         protected int totalBinaryInputs = 0;
         
-        protected AbstractPredictedEntity(Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors)
+        protected AbstractPredictedEntity(uint identifier, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors)
         {
+            id = identifier;
             rigidbody = rb;
             detachedVisualsIdentity = visuals;
             this.controllablePredictionContributors = controllablePredictionContributors;
@@ -63,6 +65,11 @@ namespace Prediction
             {
                 predictionContributors[i].ApplyForces();
             }
+        }
+        
+        public override int GetHashCode()
+        {
+            return (int) id;
         }
     }
 }
