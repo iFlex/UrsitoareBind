@@ -157,7 +157,7 @@ namespace DefaultNamespace
                 foreach (KeyValuePair<ServerPredictedEntity, uint> pair in predictionManager._serverEntityToId)
                 {
                     //TODO: NOTE: i think elements remain in the buffer somehow and cause the range: reading to be incorrect and keep going up...
-                    serverText.text += $"connId:{entityIdToOwner.GetValueOrDefault(pair.Value, -1)} id:{pair.Value} tickId:{pair.Key.GetTickId()} skipped:{pair.Key.ticksWithoutInput} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps}\n";
+                    serverText.text += $"connId:{entityIdToOwner.GetValueOrDefault(pair.Value, -1)} id:{pair.Value} tickId:{pair.Key.GetTickId()} catchup:{pair.Key.catchupTicks} skipped:{pair.Key.ticksWithoutInput} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps}\n";
                 }
             }
 
