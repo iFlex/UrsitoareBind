@@ -53,8 +53,6 @@ namespace Prediction
         public Action<int, WorldStateRecord> serverWorldStateSender;
         public Func<IEnumerable<int>> connectionsIterator;
         private WorldStateRecord _worldStateRecord;
-
-        public string conn_to_last_tick;
         
         private void Awake()
         {
@@ -562,10 +560,6 @@ namespace Prediction
             //FODO: performance
             int connId = _entityToOwnerConnId[entity];
             _connIdToLatestTick[connId] = tickId;
-            if (connId != 0)
-            {
-                conn_to_last_tick = $"c:{connId} -> {tickId} | ltk:{tickId}";
-            }
         }
         
         //FODO: performance
