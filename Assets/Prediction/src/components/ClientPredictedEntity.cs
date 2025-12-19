@@ -45,6 +45,7 @@ namespace Prediction
         public uint ticksAsLocalAuthority = 0;
         public uint resimTicksAsAuthority = 0;
         public uint resimTicksAsFollower = 0;
+        public uint maxServerDelay = 0;
         
         public ClientPredictedEntity(uint id, bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -101,6 +102,11 @@ namespace Prediction
             lastTick = tickId;
             ticksAsLocalAuthority++;
             totalTicks++;
+            uint serverDelay = GetServerDelay();
+            if (serverDelay > maxServerDelay)
+            {
+                maxServerDelay = serverDelay;
+            }
             return inputRecord;
         }
 

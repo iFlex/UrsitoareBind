@@ -9,7 +9,7 @@ namespace Prediction.wrappers
     {
         //FUDO: can we make components serializable?
         [SerializeField] private MonoBehaviour[] components;
-        [SerializeField] private int bufferSize;
+        [SerializeField] private int bufferSize = 50;
         [SerializeField] private Rigidbody _rigidbody;
         //TODO: private set but serializable...
         public PredictedEntityVisuals visuals;// { get; private set; }
@@ -81,14 +81,14 @@ namespace Prediction.wrappers
 
         void ConfigureAsClient(bool controlledLocally)
         {
-            clientPredictedEntity = new ClientPredictedEntity(netId, false, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            clientPredictedEntity = new ClientPredictedEntity(netId, false, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             SetControlledLocally(controlledLocally);
             visuals.SetClientPredictedEntity(clientPredictedEntity, PredictionManager.INTERPOLATION_PROVIDER());
         }
 
         void ConfigureAsServerClient(bool controlledLocally)
         {
-            clientPredictedEntity = new ClientPredictedEntity(netId, true, 30, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            clientPredictedEntity = new ClientPredictedEntity(netId, true, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             SetControlledLocally(controlledLocally);
         }
         

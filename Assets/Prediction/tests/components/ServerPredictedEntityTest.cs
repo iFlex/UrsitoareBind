@@ -375,33 +375,30 @@ namespace Prediction.Tests
         [Test]
         public void TestBufferSkipAhead()
         {
-            float interval = 0.15f;
-            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime);
-            entity.SetSnapToClientThreshold(interval);
-            entity.snapToClient = true;
+            int count = 20;
             for (int i = 0; i < count; i++)
             {
                 entity.BufferClientTick((uint) i, reports[1]);
             }
-            
+            entity.ServerSimulationTick();
             Assert.AreEqual(count - 1, entity.inputQueue.GetFill());
+            
             entity.BufferClientTick((uint) count, reports[2]);
+            entity.ServerSimulationTick();
             Assert.AreEqual(1, entity.inputQueue.GetFill());
             Assert.AreEqual(reports[2], entity.inputQueue.GetEnd());
+            entity.SamplePhysicsState();
+            Assert.AreEqual(0, entity.inputQueue.GetFill());
         }
         
         //TODO: proper checking
         [Test]
         public void TestBufferSkipAheadDuringNormalOp()
         {
-            float interval = 0.1f;
-            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime);
-            entity.SetSnapToClientThreshold(interval);
-            entity.snapToClient = true;
-            
+            int count = 20;
             for (int i = 0; i < count * 2; i++)
             {
-                entity.BufferClientTick((uint) i, reports[i % reports.Length]);
+                entity.BufferClientTick((uint)i, reports[i % reports.Length]);
                 if (i % 2 == 0)
                 {
                     entity.ServerSimulationTick();
@@ -409,12 +406,17 @@ namespace Prediction.Tests
 
                 if (i > 0 && i % count == 0)
                 {
-                    Assert.AreEqual(1, entity.inputQueue.GetFill());   
+                    Assert.AreEqual(1, entity.inputQueue.GetFill());
                 }
                 else
                 {
-                    int chk = (i < count) ? i  : 1 + i % count;
+                    int chk = (i < count) ? i : 1 + i % count;
                     Assert.AreEqual(chk, entity.inputQueue.GetFill());
+                }
+
+                if (i % 2 == 0)
+                {
+                    entity.SamplePhysicsState();
                 }
             }
         }
@@ -422,19 +424,15 @@ namespace Prediction.Tests
         [Test]
         public void TestBufferNeverSkipAheadDuringNormalOp()
         {
-            float interval = 0.1f;
-            int count = Mathf.CeilToInt(interval / Time.fixedDeltaTime); //12
-            entity.SetSnapToClientThreshold(interval);
-            entity.snapToClient = true;
-            
+            int count = 20;
             for (int i = 1; i < count * 3; i++)
             {
                 entity.BufferClientTick((uint) i, reports[i % reports.Length]);
                 entity.ServerSimulationTick();
+                entity.SamplePhysicsState();
                 Assert.AreEqual(0, entity.inputQueue.GetFill());
             }
         }
-        
         
         //TODO: test buffer too big, skip ahead 2...
         [Test]

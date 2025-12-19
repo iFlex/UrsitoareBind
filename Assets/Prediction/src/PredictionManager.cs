@@ -347,7 +347,7 @@ namespace Prediction
                     resimFromTickId = Math.Min(resimFromTickId, localFromTick);
                 }
             }
-
+            
             if (totalResimulationDecisions == 1 && localAsksResimulation)
             {
                 totalResimulationsDueToAuthority++;

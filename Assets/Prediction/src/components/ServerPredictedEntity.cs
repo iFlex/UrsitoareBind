@@ -31,15 +31,20 @@ namespace Prediction
         
         //NOTE: if the client updates buffer grows past a certain threshold
         //that means the server has fallen behind time wise. So we should snap ahead to the latest client state.
-        protected float snapToClientThreshold = 0.3f;
-        protected int snapToClientTickCountThreshold = 0;
-        public bool snapToClient = false;
+        public int catchupSections = 3;
+        public int ticksPerCatchupSection = 1;
+        public bool applyForcesToEachCatchupInput = false;
         
+        private uint lastAppliedTick = 0;
         //STATS
         public uint invalidInputs = 0;
         public uint ticksWithoutInput = 0;
         public uint lateTickCount = 0;
         public uint totalSnapAheadCounter = 0;
+        public int inputJumps = 0;
+        public uint catchupTicks = 0;
+        public uint catchupBufferWipes = 0;
+        public uint maxClientDelay = 0;
         
         public ServerPredictedEntity(uint id, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -51,48 +56,82 @@ namespace Prediction
             inputQueue = new TickIndexedBuffer<PredictionInputRecord>(bufferSize);
             inputQueue.emptyValue = null;
 
-            SetSnapToClientThreshold(snapToClientThreshold);
+            ticksPerCatchupSection = Mathf.FloorToInt(bufferSize / catchupSections) + 1;
         }
-
-        public void SetSnapToClientThreshold(float threshold)
-        {
-            snapToClientThreshold = threshold;
-            snapToClientTickCountThreshold = Mathf.CeilToInt(snapToClientThreshold / Time.fixedDeltaTime);
-        }
-
-        private uint lastAppliedTick = 0;
-        public int inputJumps = 0;
+        
         public uint ServerSimulationTick()
         {
             //NOTE: this also loads TickId with the latest value
-            PredictionInputRecord nextInput = TakeNextInput(false);
-            if (DEBUG)
-                Debug.Log($"[ServerPredictedEntity][ServerSimulationTick] id:{id} goID:{gameObject.GetInstanceID()} lastAppliedTick:{lastAppliedTick} buffRange:{inputQueue.GetRange()} buffFill:{inputQueue.GetFill()} nextInput:{nextInput}");
-            if (nextInput != null)
+            int inputsToApply;
+            uint maxDelay = inputQueue.GetRange();
+            if (maxDelay > maxClientDelay)
             {
-                int delta = (int)(tickId > lastAppliedTick ? tickId - lastAppliedTick : lastAppliedTick - tickId);
-                lastAppliedTick = tickId;
-                if (delta > 1)
-                {
-                    inputJumps++;
-                }
-                
-                if (ValidateState(TickDeltaToTimeDelta(delta), nextInput))
-                {
-                    LoadInput(nextInput);
-                }
-                else
-                {
-                    invalidInputs++;
-                }
+                maxClientDelay = maxDelay;
+            }
+            
+            if (inputQueue.GetFill() == inputQueue.GetCapacity())
+            {
+                //Buffer full, skip all
+                SnapToLatest();
+                inputsToApply = 1;
+                catchupBufferWipes++;
             }
             else
             {
+                inputsToApply = GetInputsCount();  
+            }
+            
+            bool atLeastOneInput = false;
+            if (inputsToApply > 1)
+            {
+                catchupTicks += (uint) inputsToApply - 1U;
+            }
+            while (inputsToApply > 0)
+            {
+                inputsToApply--;
+                PredictionInputRecord nextInput = TakeNextInput(false);
+                if (DEBUG)
+                    Debug.Log($"[ServerPredictedEntity][ServerSimulationTick] id:{id} goID:{gameObject.GetInstanceID()} lastAppliedTick:{lastAppliedTick} buffRange:{inputQueue.GetRange()} buffFill:{inputQueue.GetFill()} nextInput:{nextInput}");
+                
+                if (nextInput != null)
+                {
+                    atLeastOneInput = true;
+                    int delta = (int)(tickId > lastAppliedTick ? tickId - lastAppliedTick : lastAppliedTick - tickId);
+                    lastAppliedTick = tickId;
+                    if (delta > 1)
+                    {
+                        inputJumps++;
+                    }
+                
+                    if (ValidateState(TickDeltaToTimeDelta(delta), nextInput))
+                    {
+                        LoadInput(nextInput);
+                    }
+                    else
+                    {
+                        invalidInputs++;
+                    }
+                    if (applyForcesToEachCatchupInput)
+                    {
+                        ApplyForces();
+                    }
+                }
+            }
+            if (!atLeastOneInput)
+            {
                 ticksWithoutInput++;
             }
-            ApplyForces();
+            if (!applyForcesToEachCatchupInput)
+            {
+                ApplyForces();
+            }
             Tick();
             return GetTickId();
+        }
+
+        int GetInputsCount()
+        {
+            return Mathf.FloorToInt(inputQueue.GetFill() / ticksPerCatchupSection) + 1;
         }
         
         public PhysicsStateRecord SamplePhysicsState()
@@ -207,16 +246,8 @@ namespace Prediction
             ticksWithoutInput = 0;
             lateTickCount = 0;
         }
-
-        bool ShouldSnapToClient()
-        {
-            if (snapToClient && snapToClientTickCountThreshold > 1)
-            {
-                return inputQueue.GetFill() >= snapToClientTickCountThreshold;
-            }
-            return false;
-        }
         
+        //TODO: decide if to keep?
         void SnapToLatest()
         {
             if (DEBUG)

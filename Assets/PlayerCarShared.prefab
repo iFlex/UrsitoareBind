@@ -321,6 +321,8 @@ MonoBehaviour:
   predictedMono: {fileID: 2124725868999012484}
   pcam: {fileID: 0}
   fcam: {fileID: 2577150116825213703}
+  redy: 0
+  dbgRedy: 0
   powerMagnitude: 5
   steerPowerMagnitude: 4.5
   boostPowerMultiplier: 10
@@ -378,9 +380,13 @@ MonoBehaviour:
   syncInterval: 0
   components:
   - {fileID: 5756400233978040421}
-  bufferSize: 0
+  bufferSize: 50
   _rigidbody: {fileID: 1526699890830082510}
   visuals: {fileID: 6699726022370081141}
+  initialConfig: 0
+  dbgIsLocallyControlled: 0
+  dbgGOID: 0
+  dbgNetID: 0
 --- !u!1 &5336631553568465652
 GameObject:
   m_ObjectHideFlags: 0

@@ -105,6 +105,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
                                                       $"AvgResimLen:{PredictionManager.Instance.GetAverageResimPerTick()} " +
                                                       $"TotalResimSteps:{PredictionManager.Instance.totalResimulationSteps}\n " +
                                                       $"Skips:{PredictionManager.Instance.totalSimulationSkips}\n " +
+                                                      $"MaxSvDelay:{predictedMono.clientPredictedEntity.maxServerDelay}\n " +
                                                       $"Velo:{predictedMono.clientPredictedEntity.rigidbody.linearVelocity.magnitude}\n " +
                                                       $"DIST_TRES:{((SimpleConfigurableResimulationDecider)PredictionManager.SNAPSHOT_INSTANCE_RESIM_CHECKER).distResimThreshold}\n " +
                                                       $"SMOOTH_WNDW:{(SingletonUtils.localVisInterpolator != null ? SingletonUtils.localVisInterpolator.slidingWindowTickSize : -1)}\n " +
@@ -116,7 +117,7 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
                 if (cpe.gameObject != predictedMono.gameObject)
                 {
                     SingletonUtils.instance.clientText.text +=
-                        $"\nid:{cpe.id} ResimsAuth:{cpe.resimTicksAsAuthority} ResimsFlwr:{cpe.resimTicksAsFollower}\n";
+                        $"\nid:{cpe.id} ResimTicksAuth:{cpe.resimTicksAsAuthority} ResimTicksFlwr:{cpe.resimTicksAsFollower}\n";
                 }
             }
         }
