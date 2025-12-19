@@ -1,2 +1,2 @@
-# UnityClientSidePrediction
-Test project for building up client side prediction
+# Ursitoare
+Unity Engine library for Client Side Prediction of physics based games.
