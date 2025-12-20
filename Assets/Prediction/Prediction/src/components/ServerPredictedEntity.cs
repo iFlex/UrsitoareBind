@@ -23,14 +23,15 @@ namespace Prediction
         //NOTE: Possible to buffer user inputs if needed to try and ensure a closer to client simulation on the server at the
         //cost of delaying the server behind the client by a small margin. The more you buffer, the more the server is delayed, the less reliable is the client image.
         
-        public bool useBuffering = true;
+        public bool useBuffering = false; //true
         public int bufferFullThreshold = 3; //Number of ticks to buffer before starting to send out the updates
         private bool bufferFilled = false;
         
         //NOTE: if the client updates buffer grows past a certain threshold
         //that means the server has fallen behind time wise. So we should snap ahead to the latest client state.
+        public bool catchup = false;
         public int catchupSections = 3;
-        public int ticksPerCatchupSection = 1;
+        public int ticksPerCatchupSection = 0;
         public bool applyForcesToEachCatchupInput = false;
         
         private uint lastAppliedTick = 0;
@@ -144,6 +145,8 @@ namespace Prediction
 
         int GetInputsCount()
         {
+            if (!catchup)
+                return 1;
             return Mathf.FloorToInt(inputQueue.GetFill() / ticksPerCatchupSection) + 1;
         }
         
@@ -162,7 +165,9 @@ namespace Prediction
             //TODO: have fixedDeltaTime be configurable, pass that in on instantiation
             return delta * Time.fixedDeltaTime;
         }
-        
+
+        public uint clUpdateCount = 0;
+        public uint clAddedUpdateCount = 0;
         public void BufferClientTick(uint clientTickId, PredictionInputRecord inputRecord)
         {
             if (DEBUG)
@@ -173,8 +178,10 @@ namespace Prediction
                 firstTickArrived.Dispatch(true);
             }
 
+            clUpdateCount++;
             if (clientTickId > tickId)
             {
+                clAddedUpdateCount++;
                 inputQueue.Add(clientTickId, inputRecord);
             }
             else

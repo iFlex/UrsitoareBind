@@ -13,7 +13,7 @@ namespace Prediction
     //TODO: decouple the implementation from Time.fixedDeltaTime, have it be configurable
     public class PredictionManager
     {
-        public static bool DEBUG = false;
+        public static bool DEBUG = true;
         //TODO: guard singleton
         public static PredictionManager Instance;
         //TODO: validate presence of all static providers
@@ -33,7 +33,7 @@ namespace Prediction
         private Dictionary<uint, ServerPredictedEntity> _idToServerEntity = new Dictionary<uint, ServerPredictedEntity>();
         private Dictionary<ServerPredictedEntity, int> _entityToOwnerConnId = new Dictionary<ServerPredictedEntity, int>();
         private Dictionary<int, ServerPredictedEntity> _connIdToEntity = new Dictionary<int, ServerPredictedEntity>();
-        private Dictionary<int, uint> _connIdToLatestTick = new Dictionary<int, uint>();
+        public Dictionary<int, uint> _connIdToLatestTick = new Dictionary<int, uint>();
         //TODO: protected
         public Dictionary<uint, ClientPredictedEntity> _clientEntities = new Dictionary<uint, ClientPredictedEntity>();
         public HashSet<PredictedEntity> _predictedEntities = new HashSet<PredictedEntity>();
@@ -54,8 +54,7 @@ namespace Prediction
         // connectionId, world state
         public Action<int, WorldStateRecord> serverWorldStateSender;
         public Func<IEnumerable<int>> connectionsIterator;
-        private WorldStateRecord _worldStateRecord;
-        
+        private WorldStateRecord _worldStateRecord = new WorldStateRecord();
         
         public bool snapOnSimSkip = false;
         public bool protectFromOversimulation = true;
@@ -87,11 +86,6 @@ namespace Prediction
             this.isClient = isClient;
             Validate();
             PHYSICS_CONTROLLED.Setup(isServer);
-            
-            if (isServer)
-            {
-                _worldStateRecord = new WorldStateRecord();
-            }
             Debug.Log($"[PredictionManager] isServer:{isServer} isClient:{isClient}");
         }
 
@@ -153,13 +147,17 @@ namespace Prediction
                 return;
             
             int prevConnId = _entityToOwnerConnId.GetValueOrDefault(entity, 0);
+            Debug.Log($"[PredictionManager][SetEntityOwner] SERVER ({entity.id}) prev:{prevConnId} ownerId:{ownerId} entity:{entity}");
+
+            if (prevConnId == ownerId)
+                return;
+            
             if (prevConnId != 0)
             {
                 _connIdToEntity.Remove(prevConnId);
             }
-            
             _entityToOwnerConnId[entity] = ownerId;
-            if (ownerId >= 0)
+            if (ownerId != 0)
             {
                 _connIdToEntity[ownerId] = entity;
             }
@@ -169,15 +167,15 @@ namespace Prediction
         {
             if (entity == null)
                 return;
-
+            
             uint id = entity.id;
+            Debug.Log($"[PredictionManager][AddPredictedEntity] SERVER ({id})=>({entity})");
+            
             _serverEntityToId[entity] = id;
             _idToServerEntity[id] = entity;
             _predictedEntitiesGO.Add(entity.gameObject);
             _predictedEntities.Add(entity.gameObject.GetComponent<PredictedEntity>());
-            if (DEBUG)
-                Debug.Log($"[PredictionManager][AddPredictedEntity] SERVER ({id})=>({entity})");
-
+            
             if (useServerWorldStateMessage)
             {
                 _worldStateRecord.Resize(_serverEntityToId.Count);
@@ -190,8 +188,7 @@ namespace Prediction
                 return;
 
             uint id = entity.id;
-            if (DEBUG)
-                Debug.Log($"[PredictionManager][AddPredictedEntity] CLIENT ({id})=>({entity})");
+            Debug.Log($"[PredictionManager][AddPredictedEntity] CLIENT ({id})=>({entity})");
             
             _clientEntities[id] = entity;
             _predictedEntitiesGO.Add(entity.gameObject);
@@ -499,7 +496,7 @@ namespace Prediction
                             try
                             {
                                 if (DEBUG)
-                                    Debug.Log($"[PredictionManager][ClientPreSimTick][SEND] goID:{pair.Value.gameObject.GetInstanceID()} Client:{pair.Value} tick:{tickId}");
+                                    Debug.Log($"[PredictionManager][ClientPreSimTick][SEND] (id:{pair.Value.id}) tick:{tickId} data:{tickInputRecord} sndr:{clientStateSender}");
                                 clientStateSender?.Invoke(tickId, tickInputRecord);
                             }
                             catch (Exception e)
@@ -587,6 +584,9 @@ namespace Prediction
         void MarkLatestAppliedTickId(uint tickId, ServerPredictedEntity entity)
         {
             //FODO: performance
+            if (!_entityToOwnerConnId.ContainsKey(entity))
+                return;
+            
             int connId = _entityToOwnerConnId[entity];
             _connIdToLatestTick[connId] = tickId;
         }
@@ -627,11 +627,14 @@ namespace Prediction
             }
         }
 
-
+        public uint clientStatesReceived = 0;
         public void OnClientStateReceived(int connId, uint clientTickId, PredictionInputRecord tickInputRecord)
         {
             if (!isServer)
                 return;
+            
+            if (connId != 0)
+                clientStatesReceived++;
             
             ServerPredictedEntity entity = _connIdToEntity.GetValueOrDefault(connId);
             if (DEBUG)

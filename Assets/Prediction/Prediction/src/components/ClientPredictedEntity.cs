@@ -116,14 +116,13 @@ namespace Prediction
             return localInputBuffer.Get((int)lastTick);
         }
 
-        public uint followerOffset = 3;
+        public uint followerOffset = 0;
         uint GetFollowerNextTick(uint tickId)
         {
             if (tickId < followerOffset)
                 return 0;
             return tickId - followerOffset;
         }
-        
         
         public void ClientFollowerSimulationTick(uint tickId)
         {
@@ -200,6 +199,7 @@ namespace Prediction
 
         bool AddServerState(uint lastAppliedTick, PhysicsStateRecord serverRecord)
         {
+            Debug.Log($"[ClientPreditedEntity][AddServerState]({id}) data:{serverRecord}");
             //TODO: use lastAppliedTick to determine how old the update is and do stuff about it
             serverStateBuffer.Add(serverRecord.tickId, serverRecord);
             return serverRecord.tickId == serverStateBuffer.GetEndTick();
@@ -278,7 +278,7 @@ namespace Prediction
 
         public uint GetServerDelay()
         {
-            return totalTicks - serverStateBuffer.GetEndTick();
+            return lastTick - serverStateBuffer.GetEndTick();
         }
 
         public void SetControlledLocally(bool controlled)

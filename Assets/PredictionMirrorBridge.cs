@@ -154,12 +154,13 @@ namespace DefaultNamespace
         {
             if (serverText)
             {
-                serverText.text = $"NetLayer:: Latency:{SingletonUtils.instance.latencySim.latency} Jitter:{SingletonUtils.instance.latencySim.jitter} TicksPerSection:{((localPredMono == null || localPredMono.GetServerEntity() == null) ? "x" : localPredMono.GetServerEntity().ticksPerCatchupSection)}\n";
+                serverText.text = $"NetLayer:: Latency:{SingletonUtils.instance.latencySim.latency} Jitter:{SingletonUtils.instance.latencySim.jitter} TicksPerSection:{((localPredMono == null || localPredMono.GetServerEntity() == null) ? "x" : localPredMono.GetServerEntity().ticksPerCatchupSection)} stCnt:{PredictionManager.Instance.clientStatesReceived}\n";
                 //TODO: make _serverEntityToId private again
                 foreach (KeyValuePair<ServerPredictedEntity, uint> pair in predictionManager._serverEntityToId)
                 {
                     //TODO: NOTE: i think elements remain in the buffer somehow and cause the range: reading to be incorrect and keep going up...
-                    serverText.text += $"connId:{entityIdToOwner.GetValueOrDefault(pair.Value, -1)} id:{pair.Value} tickId:{pair.Key.GetTickId()} bfrTicks:{pair.Key.totalBufferingTicks} catchup:{pair.Key.catchupTicks} bfrWipe:{pair.Key.catchupBufferWipes} skipped:{pair.Key.ticksPerCatchupSection} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps} maxDelay:{pair.Key.maxClientDelay}\n";
+                    int cid = entityIdToOwner.GetValueOrDefault(pair.Value, -1);
+                    serverText.text += $"connId:{cid} id:{pair.Value} tickId:{pair.Key.GetTickId()} lastConnTick:{predictionManager._connIdToLatestTick.GetValueOrDefault(cid, uint.MaxValue)} bfrTicks:{pair.Key.totalBufferingTicks} catchup:{pair.Key.catchupTicks} bfrWipe:{pair.Key.catchupBufferWipes} skipped:{pair.Key.ticksPerCatchupSection} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps} maxDelay:{pair.Key.maxClientDelay} rcvCnt:{pair.Key.clUpdateCount} rcv+cnt:{pair.Key.clAddedUpdateCount}\n";
                 }
             }
 

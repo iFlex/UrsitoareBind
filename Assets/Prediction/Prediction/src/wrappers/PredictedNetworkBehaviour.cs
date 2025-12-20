@@ -18,25 +18,18 @@ namespace Prediction.wrappers
         public ServerPredictedEntity serverPredictedEntity { get; private set; }
         public bool isReady { get; private set; }
         
-        [SerializeField] private bool initialConfig = false;
         [SerializeField] private bool dbgIsLocallyControlled;
         [SerializeField] private int dbgGOID;
         [SerializeField] private uint dbgNetID;
         
         private void SetReady(bool ready)
         {
-            if (isReady != ready && ready)
-            {
-                initialConfig = true;
-                ((PredictedEntity)this).Register();
-            }
-
             isReady = ready;
         }
         
         void OnEnable()
         {
-            if (initialConfig)
+            if (isReady)
             {
                 ((PredictedEntity)this).Register();
             }
@@ -77,18 +70,21 @@ namespace Prediction.wrappers
         void ConfigureAsServer()
         {
             serverPredictedEntity = new ServerPredictedEntity(netId, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            ((PredictedEntity)this).Register();
         }
 
         void ConfigureAsClient(bool controlledLocally)
         {
             clientPredictedEntity = new ClientPredictedEntity(netId, false, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             visuals.SetClientPredictedEntity(clientPredictedEntity, PredictionManager.INTERPOLATION_PROVIDER());
+            ((PredictedEntity)this).Register();
             SetControlledLocally(controlledLocally);
         }
 
         void ConfigureAsServerClient(bool controlledLocally)
         {
             clientPredictedEntity = new ClientPredictedEntity(netId, true, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
+            ((PredictedEntity)this).Register();
             SetControlledLocally(controlledLocally);
         }
         

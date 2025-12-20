@@ -96,8 +96,8 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
         
         if (predictedMono.IsControlledLocally() && SingletonUtils.instance.clientText)
         {
-            SingletonUtils.instance.clientText.text = $"Tick:{PredictionManager.Instance.lastClientAppliedTick}\n " + 
-                                                      $"ServerDelay:{predictedMono.clientPredictedEntity.GetServerDelay()}\n " +
+            SingletonUtils.instance.clientText.text = $"Tick:{PredictionManager.Instance.lastClientAppliedTick} | {predictedMono.clientPredictedEntity.lastTick}\n " + 
+                                                      $"ServerDelay:{predictedMono.clientPredictedEntity.GetServerDelay()} | endT:{predictedMono.clientPredictedEntity.serverStateBuffer.GetEndTick()}\n " +
                                                       $"Resimulations:{PredictionManager.Instance.totalResimulations}\n " +
                                                       $"AuthResims:{PredictionManager.Instance.totalResimulationsDueToAuthority}\n " +
                                                       $"FlwrResims:{PredictionManager.Instance.totalResimulationsDueToFollowers}\n " +
