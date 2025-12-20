@@ -117,14 +117,14 @@ namespace DefaultNamespace
                 deciderIndex++;
                 deciderIndex %= deciders.Length;
                 CURRENT_DECIDER = deciders[deciderIndex];
-                localCPE?.SetSingleStateEligibilityCheckHandler(deciders[deciderIndex].Check);
+                localCPE.SetSingleStateEligibilityCheckHandler(deciders[deciderIndex].Check);
             }
             if (Input.GetKeyDown(KeyCode.K))
             {
                 deciderIndex--;
                 deciderIndex = Mathf.Max(0, deciderIndex);
                 CURRENT_DECIDER = deciders[deciderIndex];
-                localCPE?.SetSingleStateEligibilityCheckHandler(deciders[deciderIndex].Check);
+                localCPE.SetSingleStateEligibilityCheckHandler(deciders[deciderIndex].Check);
             }
             
             if (Input.GetKeyDown(KeyCode.U))
