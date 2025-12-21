@@ -139,6 +139,18 @@ namespace DefaultNamespace
                     localVisInterpolator.slidingWindowTickSize = 1;
                 }
             }
+            
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                MovingAverageInterpolator.FOLLOWER_SMOOTH_WINDOW++;
+            }
+            if (Input.GetKeyDown(KeyCode.F))
+            {
+                if (MovingAverageInterpolator.FOLLOWER_SMOOTH_WINDOW > 0)
+                {
+                    MovingAverageInterpolator.FOLLOWER_SMOOTH_WINDOW--;
+                }
+            }
         }
     }
 }

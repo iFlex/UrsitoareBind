@@ -9,6 +9,8 @@ namespace Prediction.Interpolation
     public class MovingAverageInterpolator: VisualsInterpolationsProvider
     {
         public static int DEBUG_COUNTER = 0;
+        public static int FOLLOWER_SMOOTH_WINDOW = 6;
+        
         RingBuffer<PhysicsStateRecord> buffer = new RingBuffer<PhysicsStateRecord>(200);
         public RingBuffer<PhysicsStateRecord> averagedBuffer = new RingBuffer<PhysicsStateRecord>(3);
 
@@ -228,7 +230,7 @@ namespace Prediction.Interpolation
                 //int ticks = Mathf.CeilToInt((float) (PredictionManager.ROUND_TRIP_GETTER() / Time.fixedDeltaTime) * 0.55f);
                 //slidingWindowTickSize = 12; //Math.Max(12, ticks);
                 //NOTE: not sure we really need this, set it the same as the client
-                slidingWindowTickSize = 6;
+                slidingWindowTickSize = FOLLOWER_SMOOTH_WINDOW;
             }
         }
     }
