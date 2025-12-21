@@ -2,6 +2,7 @@
 using Mirror;
 using Prediction;
 using Prediction.data;
+using Prediction.Interpolation;
 using Prediction.wrappers;
 using UnityEngine;
 
@@ -154,7 +155,7 @@ namespace DefaultNamespace
         {
             if (serverText)
             {
-                serverText.text = $"NetLayer:: Latency:{SingletonUtils.instance.latencySim.latency} Jitter:{SingletonUtils.instance.latencySim.jitter} TicksPerSection:{((localPredMono == null || localPredMono.GetServerEntity() == null) ? "x" : localPredMono.GetServerEntity().ticksPerCatchupSection)} stCnt:{PredictionManager.Instance.clientStatesReceived}\n";
+                serverText.text = $"NetLayer:: Latency:{SingletonUtils.instance.latencySim.latency} Jitter:{SingletonUtils.instance.latencySim.jitter} TicksPerSection:{((localPredMono == null || localPredMono.GetServerEntity() == null) ? "x" : localPredMono.GetServerEntity().ticksPerCatchupSection)} stCnt:{PredictionManager.Instance.clientStatesReceived} FlwrWindowSz:{MovingAverageInterpolator.FOLLOWER_SMOOTH_WINDOW}\n";
                 //TODO: make _serverEntityToId private again
                 foreach (KeyValuePair<ServerPredictedEntity, uint> pair in predictionManager._serverEntityToId)
                 {
