@@ -23,6 +23,13 @@ namespace Prediction.wrappers
                     
                     ReportToServerUnreliable(tickId, data);
                 };
+                predictionManager.clientHeartbeadSender = (tickId) =>
+                {
+                    if (MSG_DEBUG)
+                        Debug.Log(
+                            $"[PredictionMirrorBridge][clientHeartbeadSender] SEND client_heartbeat tickId:{tickId}");
+                    ReportHeartbeat(tickId);
+                };
             }
             
             if (isServer)
@@ -62,6 +69,14 @@ namespace Prediction.wrappers
                 };
             }
             predictionManager.Setup(isServer, isClient);
+        }
+
+        [Command(requiresAuthority = false, channel = Channels.Unreliable)]
+        void ReportHeartbeat(uint tickId, NetworkConnectionToClient sender = null)
+        {
+            if (MSG_DEBUG)
+                Debug.Log($"[PredictionMirrorBridge][ReportHeartbeat] Received client_heartbeat: tickId:{tickId} sender:{sender}");
+            predictionManager.OnHeartbeatReceived(sender.connectionId, tickId);
         }
         
         [Command(requiresAuthority = false, channel = Channels.Unreliable)]

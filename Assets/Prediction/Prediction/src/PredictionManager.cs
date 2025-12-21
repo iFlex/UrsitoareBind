@@ -48,9 +48,11 @@ namespace Prediction
         public bool autoTrackRigidbodies = true;
         public bool useServerWorldStateMessage = true;
 
+        //NOTE: heartbeats are only sent when no predicted entity is controlled locally
+        //         tickId
+        public Action<uint>                       clientHeartbeadSender;
+        //            tickId, inputData
         public Action<uint, PredictionInputRecord>       clientStateSender;
-        //TODO: validate and wire up
-        public Action<uint>                       spectatorHeartbeatSender;
         // connectionId, entityId, state
         public Action<int, uint, PhysicsStateRecord>    serverStateSender;
         // connectionId, world state
@@ -95,6 +97,11 @@ namespace Prediction
         {
             if (isClient)
             {
+                if (clientHeartbeadSender == null)
+                {
+                    throw new Exception(
+                        "INVALID_CONFIG: isClient = true but no clientHeartbeadSender provided");
+                }
                 if (clientStateSender == null)
                 {
                     throw new Exception(
@@ -528,7 +535,7 @@ namespace Prediction
 
         void SendSpectatorHeartbeat(uint tickId)
         {
-            spectatorHeartbeatSender?.Invoke(tickId);
+            clientHeartbeadSender?.Invoke(tickId);
         }
 
         void ClientPostSimTick()
@@ -611,6 +618,11 @@ namespace Prediction
             return _connIdToLatestTick.GetValueOrDefault(connId, tickId);
         }
 
+        public void OnHeartbeatReceived(int connectionId, uint tickId)
+        {
+            _connIdToLatestTick[connectionId] = tickId;
+        }
+        
         public void OnServerWorldStateReceived(WorldStateRecord wsr)
         {
             if (DEBUG)

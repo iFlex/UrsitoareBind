@@ -160,7 +160,7 @@ namespace DefaultNamespace
                 {
                     //TODO: NOTE: i think elements remain in the buffer somehow and cause the range: reading to be incorrect and keep going up...
                     int cid = entityIdToOwner.GetValueOrDefault(pair.Value, -1);
-                    serverText.text += $"connId:{cid} id:{pair.Value} tickId:{pair.Key.GetTickId()} lastConnTick:{predictionManager._connIdToLatestTick.GetValueOrDefault(cid, uint.MaxValue)} bfrTicks:{pair.Key.totalBufferingTicks} catchup:{pair.Key.catchupTicks} bfrWipe:{pair.Key.catchupBufferWipes} skipped:{pair.Key.ticksPerCatchupSection} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps} maxDelay:{pair.Key.maxClientDelay} rcvCnt:{pair.Key.clUpdateCount} rcv+cnt:{pair.Key.clAddedUpdateCount}\n";
+                    serverText.text += $"connId:{cid} id:{pair.Value} tickId:{pair.Key.GetTickId()} lastConnTick:{predictionManager._connIdToLatestTick.GetValueOrDefault(cid, uint.MaxValue)} bfrTicks:{pair.Key.totalBufferingTicks} bfrWipe:{pair.Key.catchupBufferWipes} catchup:{pair.Key.catchupTicks} skipped:{pair.Key.ticksPerCatchupSection} range:{pair.Key.BufferSize()} inputJumps:{pair.Key.inputJumps} maxDelay:{pair.Key.maxClientDelay} rcvCnt:{pair.Key.clUpdateCount} rcv+cnt:{pair.Key.clAddedUpdateCount}\n";
                 }
             }
 

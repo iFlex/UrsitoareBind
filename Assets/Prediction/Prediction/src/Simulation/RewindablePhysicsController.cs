@@ -23,6 +23,8 @@ namespace Prediction.Simulation
         {
             Physics.simulationMode = SimulationMode.Script;
             Instance = this;
+            
+            //TODO: can i configure the physics engine here?
         }
 
         public void Simulate()

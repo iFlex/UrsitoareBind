@@ -432,6 +432,7 @@ namespace Prediction.Tests
                 Assert.AreEqual(i, record.tickId);
                 Assert.AreEqual(serverPos[i], record.position);
             }
+            //No more incoming data -> 2 missing inputs buffer again
             for (int i = 7; i < serverInput.Length; i++)
             {
                 entity.ServerSimulationTick();
@@ -460,6 +461,8 @@ namespace Prediction.Tests
                 Assert.AreEqual(i, record.tickId);
                 //Assert.AreEqual(serverPos[i], record.position);
             }
+            Assert.AreEqual(4, entity.totalBufferingTicks);
+            Assert.AreEqual(4, entity.totalMissingInputTicks);
         }
         
         [Test]
@@ -481,7 +484,7 @@ namespace Prediction.Tests
             Assert.AreEqual(0, entity.inputQueue.GetFill());
         }
         
-        //TODO: proper checking
+        //TODO: test new mechanism for catching up
         [Test]
         public void TestBufferSkipAheadDuringNormalOp()
         {

@@ -22,14 +22,14 @@ namespace Prediction
         
         //NOTE: Possible to buffer user inputs if needed to try and ensure a closer to client simulation on the server at the
         //cost of delaying the server behind the client by a small margin. The more you buffer, the more the server is delayed, the less reliable is the client image.
-        
-        public bool useBuffering = false; //true
+
+        public bool useBuffering = true;
         public int bufferFullThreshold = 3; //Number of ticks to buffer before starting to send out the updates
         private bool bufferFilled = false;
         
         //NOTE: if the client updates buffer grows past a certain threshold
         //that means the server has fallen behind time wise. So we should snap ahead to the latest client state.
-        public bool catchup = false;
+        public bool catchup = true;
         public int catchupSections = 3;
         public int ticksPerCatchupSection = 0;
         public bool applyForcesToEachCatchupInput = false;
@@ -46,6 +46,7 @@ namespace Prediction
         public uint catchupBufferWipes = 0;
         public uint maxClientDelay = 0;
         public uint totalBufferingTicks = 0;
+        public uint totalMissingInputTicks = 0;
         
         public ServerPredictedEntity(uint id, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -136,7 +137,14 @@ namespace Prediction
             }
             else
             {
-                totalBufferingTicks++;
+                if (inputQueue.GetFill() > 0)
+                {
+                    totalBufferingTicks++;
+                }
+                else
+                {
+                    totalMissingInputTicks++;
+                }
                 ApplyForces();
             }
             Tick();
@@ -219,12 +227,14 @@ namespace Prediction
         {
             return tickId;
         }
-        
+
         public PredictionInputRecord TakeNextInput(bool remove)
         {
-            if (useBuffering && !CanUseBuffer())
+            if (!CanUseBuffer())
+            {
                 return null;
-            
+            }
+
             uint newTick = inputQueue.GetNextTick(tickId);
             if (newTick > 0)
             {
