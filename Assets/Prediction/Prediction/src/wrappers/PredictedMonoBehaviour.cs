@@ -73,14 +73,6 @@ namespace Prediction.wrappers
             return visuals;
         }
 
-        public void SetControlledLocally(bool controlledLocally)
-        {
-            ((PredictedEntity)this).RegisterControlledLocally(controlledLocally);
-            visuals.Reset();
-            clientPredictedEntity?.SetControlledLocally(controlledLocally);
-            visuals.SetControlledLocally(controlledLocally);
-        }
-
         public void ResetClient()
         {
             visuals.Reset();
@@ -113,16 +105,5 @@ namespace Prediction.wrappers
             //TODO: needs a provider here
             return 0;
         }
-        
-        private void OnCollisionEnter(Collision other)
-        {
-            /*
-            if (PredictionManager.Instance.IsPredicted(other.rigidbody))
-            {
-                GetClientEntity().MarkInteractionWithLocalAuthority();
-            }
-            */
-        }
-        //TODO: on collision stay?
     }
 }

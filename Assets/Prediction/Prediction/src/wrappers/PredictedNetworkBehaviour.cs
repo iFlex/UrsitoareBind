@@ -24,6 +24,10 @@ namespace Prediction.wrappers
         
         private void SetReady(bool ready)
         {
+            if (!isReady && ready)
+            {
+                ((PredictedEntity)this).Register();
+            }
             isReady = ready;
         }
         
@@ -53,39 +57,40 @@ namespace Prediction.wrappers
         {
             if (isServer)
             {
-                ConfigureAsServerClient(false);
+                ConfigureAsServerClient();
             }
             else
             {
-                ConfigureAsClient(false);
+                ConfigureAsClient();
             }
             SetReady(true);
         }
 
         public override void OnStartAuthority()
         {
-            SetControlledLocally(true);
+            //TODO: wat?
         }
 
         void ConfigureAsServer()
         {
+            Debug.Log($"[PredictedNetworkBehaviour][ConfigureAsServer] this:{this} netId:{netId}");
             serverPredictedEntity = new ServerPredictedEntity(netId, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             ((PredictedEntity)this).Register();
         }
 
-        void ConfigureAsClient(bool controlledLocally)
+        void ConfigureAsClient()
         {
+            Debug.Log($"[PredictedNetworkBehaviour][ConfigureAsClient] this:{this} netId:{netId}");
             clientPredictedEntity = new ClientPredictedEntity(netId, false, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             visuals.SetClientPredictedEntity(clientPredictedEntity, PredictionManager.INTERPOLATION_PROVIDER());
             ((PredictedEntity)this).Register();
-            SetControlledLocally(controlledLocally);
         }
 
-        void ConfigureAsServerClient(bool controlledLocally)
+        void ConfigureAsServerClient()
         {
+            Debug.Log($"[PredictedNetworkBehaviour][ConfigureAsServerClient] this:{this} netId:{netId}");
             clientPredictedEntity = new ClientPredictedEntity(netId, true, bufferSize, _rigidbody, visuals.gameObject, WrapperHelpers.GetControllableComponents(components), WrapperHelpers.GetComponents(components));
             ((PredictedEntity)this).Register();
-            SetControlledLocally(controlledLocally);
         }
         
         public bool IsControlledLocally()
@@ -114,16 +119,7 @@ namespace Prediction.wrappers
         {
             return visuals;
         }
-
-        public void SetControlledLocally(bool controlledLocally)
-        {
-            Debug.Log($"[PredictedNetworkBehaviour][SetControlledLocally]({netId}) goID:{gameObject.GetInstanceID()} local:{controlledLocally}");
-            ((PredictedEntity)this).RegisterControlledLocally(controlledLocally);
-            visuals.Reset();
-            clientPredictedEntity?.SetControlledLocally(controlledLocally);
-            visuals.SetControlledLocally(controlledLocally);
-        }
-
+        
         public void ResetClient()
         {
             Debug.Log($"[PredictedNetworkBehaviour][ResetClient]({netId})");
@@ -157,19 +153,6 @@ namespace Prediction.wrappers
         {
             return (netIdentity.connectionToClient == null) ? 0 : netIdentity.connectionToClient.connectionId;
         }
-
-        private void OnCollisionEnter(Collision other)
-        {
-            if (IsClient() && !IsServer())
-            {
-                if (PredictionManager.Instance.IsPredicted(other.rigidbody))
-                {
-                    Debug.Log($"[PredictedNetworkBehaviour][OnCollisionEnter] this:{gameObject}({gameObject.GetInstanceID()}) other:{other}:({other.rigidbody})::{other.rigidbody.gameObject.GetInstanceID()}");
-                    //GetClientEntity().MarkInteractionWithLocalAuthority();
-                }
-            }
-        }
-        //TODO: on collision stay?
 
         void Update()
         {

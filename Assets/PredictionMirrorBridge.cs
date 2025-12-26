@@ -23,8 +23,6 @@ namespace DefaultNamespace
         public PredictedNetworkBehaviour localPredMono;
         
         private Dictionary<int, PredictedNetworkBehaviour> originalOwnership = new Dictionary<int, PredictedNetworkBehaviour>();
-        private Dictionary<int, PredictedNetworkBehaviour> ownership = new Dictionary<int, PredictedNetworkBehaviour>();
-        private Dictionary<uint, int> entityIdToOwner = new Dictionary<uint, int>();
         
         public int resimCounter = 0;
         private bool setSendRate = false;
@@ -120,6 +118,19 @@ namespace DefaultNamespace
                         //TODO: report?
                     }
                 };
+
+                predictionManager.serverSetControlledLocally = (connId, entityId, owned) =>
+                {
+                    NetworkConnectionToClient netconn = NetworkServer.connections.GetValueOrDefault(connId, null);
+                    if (netconn != null)
+                    {
+                        UpdateLocalOwnership(netconn, entityId, owned);
+                    }
+                    else if (connId != 0)
+                    {
+                        //TODO: report?
+                    }
+                };
                 
                 sharedGO = Instantiate(sharedGOPrefab, Vector3.one, Quaternion.identity);
                 NetworkServer.Spawn(sharedGO);
@@ -133,15 +144,19 @@ namespace DefaultNamespace
             if (isServer)
             {
                 int connId = entity.netIdentity.connectionToClient == null ? 0 : entity.netIdentity.connectionToClient.connectionId;
+                Debug.Log($"[PredictionMirrorBridge][OnSpawned] entity:{entity} netId:{entity.netId} connId:{connId}");
                 if (entity.gameObject != sharedPredMono.gameObject)
                 {
-                    ownership[connId] = entity.predictedMono;   
                     originalOwnership[connId] = entity.predictedMono;
-                    entityIdToOwner[entity.netId] = connId;
                 }
                 if (entity.isOwned)
                 {
                     localPredMono = entity.predictedMono;
+                    predictionManager.SetEntityOwner(entity.predictedMono.GetServerEntity(), 0);
+                }
+                if (entity.netIdentity.connectionToClient != null)
+                {
+                    predictionManager.SetEntityOwner(entity.predictedMono.GetServerEntity(), connId);
                 }
             }
             if (isClient && entity.predictedMono.clientPredictedEntity != null)
@@ -149,7 +164,6 @@ namespace DefaultNamespace
                 if (entity.netIdentity.isOwned)
                 {
                     localPredMono = entity.predictedMono;
-                    entity.predictedMono.SetControlledLocally(true);
                 }
             }
         }
@@ -167,7 +181,7 @@ namespace DefaultNamespace
                 foreach (KeyValuePair<ServerPredictedEntity, uint> pair in predictionManager._serverEntityToId)
                 {
                     //TODO: NOTE: i think elements remain in the buffer somehow and cause the range: reading to be incorrect and keep going up...
-                    int cid = entityIdToOwner.GetValueOrDefault(pair.Value, -1);
+                    int cid = predictionManager.GetOwner(pair.Key);
                     serverText.text += $"connId:{cid} id:{pair.Value} tickId:{pair.Key.GetTickId()} lastConnTick:{predictionManager._connIdToLatestTick.GetValueOrDefault(cid, uint.MaxValue)} ticksNoInpt:{pair.Key.ticksWithoutInput} bfrTicks:{pair.Key.totalBufferingTicks} bfrWipe:{pair.Key.catchupBufferWipes} catchup:{pair.Key.catchupTicks} skipped:{pair.Key.ticksPerCatchupSection} range:{pair.Key.BufferSize()} fill:{pair.Key.BufferFill()} inputJumps:{pair.Key.inputJumps} maxDelay:{pair.Key.maxClientDelay} rcvCnt:{pair.Key.clUpdateCount} rcv+cnt:{pair.Key.clAddedUpdateCount}\n";
                 }
             }
@@ -209,70 +223,36 @@ namespace DefaultNamespace
                 Debug.Log($"[PredictionMirrorBridge][TargetedWorldReportFromServerUnreliable] Received server_report: data:{data}");
             predictionManager.OnServerWorldStateReceived(data);
         }
+
+        [TargetRpc(channel = Channels.Reliable)]
+        void UpdateLocalOwnership(NetworkConnectionToClient receiver, uint entityId, bool owned)
+        {
+            if (MSG_DEBUG)
+                Debug.Log($"[PredictionMirrorBridge][UpdateLocalOwnership] Received server_ownership_report: entity:{entityId} owned:{owned}");
+            predictionManager.OnEntityOwnershipChanged(entityId, owned);
+        }
         
         public PredictedNetworkBehaviour GetOriginalOwnedObject(int connectionId)
         {
             return originalOwnership.GetValueOrDefault(connectionId, null);
         }
-
-        public PredictedNetworkBehaviour GetOwnerObject(int connectionId)
-        {
-            return ownership.GetValueOrDefault(connectionId, null);
-        }
         
         [Server]
         public void SwitchOwnership(int connectionId, PredictedNetworkBehaviour newObject)
         {
-            if (entityIdToOwner.ContainsKey(newObject.netId))
+            if (predictionManager.GetOwner(newObject.GetServerEntity()) > -1)
             {
                 Debug.Log($"[PredictionMirrorBridge][SwitchOwnership] BUSY conn:{connectionId} newObj:{newObject}");
                 return;
             }
             
-            PredictedNetworkBehaviour pnb = GetOwnerObject(connectionId);
-            pnb.SetControlledLocally(false);
-            
-            Debug.Log($"[PredictionMirrorBridge][SwitchOwnership] conn:{connectionId} oldObj:{pnb} newObj:{newObject}");
-            
-            //NOTE, since this is just for show, set it to some stupid number
-            predictionManager.SetEntityOwner(pnb.serverPredictedEntity, 9999);
-            
-            int oldOwnerId = entityIdToOwner.GetValueOrDefault(pnb.netId, 0);
-            uint oldId = pnb.netId;
-            RemoveLocalControl(NetworkServer.connections[oldOwnerId], newObject);
-            ownership.Remove(oldOwnerId);
-            entityIdToOwner.Remove(oldId);
-            
-            //Set new
-            ownership[connectionId] = newObject;
-            entityIdToOwner[newObject.netId] = connectionId;
-            newObject.Reset();
-            
+            Debug.Log($"[PredictionMirrorBridge][SwitchOwnership] conn:{connectionId} newObj:{newObject}");
             if (newObject == sharedPredMono && newObject.clientPredictedEntity == null)
             {
                 Debug.Log($"[PredictionMirrorBridge][SwitchOwnership][SERVER_INIT] connId:{connectionId}");
                 newObject.OnStartAuthority();
             }
             predictionManager.SetEntityOwner(newObject.serverPredictedEntity, connectionId);
-            
-            UpdateControlledObject(NetworkServer.connections[connectionId], newObject);
-        }
-
-        [TargetRpc]
-        public void UpdateControlledObject(NetworkConnectionToClient conn, PredictedNetworkBehaviour newObj)
-        {
-            Debug.Log($"[PredictionMirrorBridge][UpdateControlledObject] conn:{conn} newObj:{newObj} currentObj:{localPredMono}");
-            localPredMono.Reset();
-            
-            localPredMono = newObj;
-            localPredMono.SetControlledLocally(true);
-            SingletonUtils.localCPE = localPredMono.clientPredictedEntity;
-        }
-
-        [TargetRpc]
-        public void RemoveLocalControl(NetworkConnectionToClient conn, PredictedNetworkBehaviour entity)
-        {
-            entity.SetControlledLocally(false);
         }
     }
 }

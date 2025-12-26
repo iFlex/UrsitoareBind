@@ -58,7 +58,6 @@ namespace Prediction.Tests
         [Test]
         public void TestResimulationDecision()
         {
-            PredictionManager tstManager = new PredictionManager();
             MockClientPredictedEntity mock1 = new MockClientPredictedEntity(0, false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
             MockClientPredictedEntity mock2 = new MockClientPredictedEntity(1,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
             MockClientPredictedEntity mock3 = new MockClientPredictedEntity(2,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
@@ -66,12 +65,12 @@ namespace Prediction.Tests
             MockClientPredictedEntity mock5 = new MockClientPredictedEntity(4,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
             MockClientPredictedEntity mock6 = new MockClientPredictedEntity(5,false, 20, rigidbody, test, new PredictableControllableComponent[0], new PredictableComponent[0]);
             
-            tstManager.AddPredictedEntity(mock1);
-            tstManager.AddPredictedEntity(mock2);
-            tstManager.AddPredictedEntity(mock3);
-            tstManager.AddPredictedEntity(mock4);
-            tstManager.AddPredictedEntity(mock5);
-            tstManager.AddPredictedEntity(mock6);
+            manager.AddPredictedEntity(mock1);
+            manager.AddPredictedEntity(mock2);
+            manager.AddPredictedEntity(mock3);
+            manager.AddPredictedEntity(mock4);
+            manager.AddPredictedEntity(mock5);
+            manager.AddPredictedEntity(mock6);
             
             mock1._predictionDecision = PredictionDecision.NOOP;       
             mock2._predictionDecision = PredictionDecision.SNAP;
@@ -87,19 +86,16 @@ namespace Prediction.Tests
             mock5._fromTick = 5;
             mock6._fromTick = 6;
 
-            tstManager.SetLocalEntity(1);
-            mock1.SetControlledLocally(true);
-            Assert.AreEqual(PredictionDecision.RESIMULATE, tstManager.ComputePredictionDecision(out uint resimFrom1));
+            manager.OnEntityOwnershipChanged(1, true);
+            Assert.AreEqual(PredictionDecision.RESIMULATE, manager.ComputePredictionDecision(out uint resimFrom1));
             Assert.AreEqual(3, resimFrom1);
             
-            tstManager.SetLocalEntity(2);
-            mock2.SetControlledLocally(true);
-            Assert.AreEqual(PredictionDecision.RESIMULATE, tstManager.ComputePredictionDecision(out uint resimFrom2));
+            manager.OnEntityOwnershipChanged(2, true);
+            Assert.AreEqual(PredictionDecision.RESIMULATE, manager.ComputePredictionDecision(out uint resimFrom2));
             Assert.AreEqual(3, resimFrom2);
             
-            tstManager.SetLocalEntity(3);
-            mock3.SetControlledLocally(true);
-            Assert.AreEqual(PredictionDecision.RESIMULATE, tstManager.ComputePredictionDecision(out uint resimFrom3));
+            manager.OnEntityOwnershipChanged(3, true);
+            Assert.AreEqual(PredictionDecision.RESIMULATE, manager.ComputePredictionDecision(out uint resimFrom3));
             Assert.AreEqual(3, resimFrom3);
             
             mock1._predictionDecision = PredictionDecision.NOOP;       
@@ -109,11 +105,10 @@ namespace Prediction.Tests
             mock5._predictionDecision = PredictionDecision.SNAP;
             mock6._predictionDecision = PredictionDecision.NOOP;
             
-            Assert.AreEqual(PredictionDecision.SNAP, tstManager.ComputePredictionDecision(out uint resimFrom4));
+            Assert.AreEqual(PredictionDecision.SNAP, manager.ComputePredictionDecision(out uint resimFrom4));
             
-            tstManager.SetLocalEntity(1);
-            mock1.SetControlledLocally(true);
-            Assert.AreEqual(PredictionDecision.SNAP, tstManager.ComputePredictionDecision(out uint resimFrom5));
+            manager.OnEntityOwnershipChanged(1, true);
+            Assert.AreEqual(PredictionDecision.SNAP, manager.ComputePredictionDecision(out uint resimFrom5));
             
             mock1._predictionDecision = PredictionDecision.SNAP;       
             mock2._predictionDecision = PredictionDecision.NOOP;
@@ -122,24 +117,22 @@ namespace Prediction.Tests
             mock5._predictionDecision = PredictionDecision.NOOP;
             mock6._predictionDecision = PredictionDecision.NOOP;
                 
-            Assert.AreEqual(PredictionDecision.SNAP, tstManager.ComputePredictionDecision(out uint resimFrom6));
+            Assert.AreEqual(PredictionDecision.SNAP, manager.ComputePredictionDecision(out uint resimFrom6));
             
-            tstManager.SetLocalEntity(3);
-            mock3.SetControlledLocally(true);
+            manager.OnEntityOwnershipChanged(3, true);
             
-            Assert.AreEqual(PredictionDecision.SNAP, tstManager.ComputePredictionDecision(out uint resimFrom7));
+            Assert.AreEqual(PredictionDecision.SNAP, manager.ComputePredictionDecision(out uint resimFrom7));
             
             mock1._predictionDecision = PredictionDecision.RESIMULATE;
-            Assert.AreEqual(PredictionDecision.RESIMULATE, tstManager.ComputePredictionDecision(out uint resimFrom8));
+            Assert.AreEqual(PredictionDecision.RESIMULATE, manager.ComputePredictionDecision(out uint resimFrom8));
             Assert.AreEqual(1, resimFrom8);
             
-            tstManager.SetLocalEntity(1);
-            mock1.SetControlledLocally(true);
-            Assert.AreEqual(PredictionDecision.RESIMULATE, tstManager.ComputePredictionDecision(out uint resimFrom9));
+            manager.OnEntityOwnershipChanged(1, true);
+            Assert.AreEqual(PredictionDecision.RESIMULATE, manager.ComputePredictionDecision(out uint resimFrom9));
             Assert.AreEqual(1, resimFrom9);
             
             mock1._predictionDecision = PredictionDecision.NOOP;
-            Assert.AreEqual(PredictionDecision.NOOP, tstManager.ComputePredictionDecision(out uint resimFrom10));
+            Assert.AreEqual(PredictionDecision.NOOP, manager.ComputePredictionDecision(out uint resimFrom10));
         }
         
         [Test]
@@ -151,7 +144,7 @@ namespace Prediction.Tests
             mock1.decisionPassThrough = true;
             
             manager.AddPredictedEntity(mock1);
-            manager.SetLocalEntity(1);
+            manager.OnEntityOwnershipChanged(1, true);
             
             var inputs = new []       { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.right,  Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.right,   Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
             var serverInputs = new [] { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up,    Vector3.up,  Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up, Vector3.up,      Vector3.up, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
@@ -195,7 +188,7 @@ namespace Prediction.Tests
             mock1.decisionPassThrough = true;
 
             manager.AddPredictedEntity(mock1);
-            manager.SetLocalEntity(1);
+            manager.OnEntityOwnershipChanged(1, true);
             
             var inputs = new []       { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.up,    Vector3.right, Vector3.up, Vector3.right, Vector3.up };
             var serverInputs = new [] { Vector3.zero, Vector3.right, Vector3.up, Vector3.right, Vector3.right, Vector3.right, Vector3.up, Vector3.right, Vector3.up };
@@ -241,7 +234,7 @@ namespace Prediction.Tests
             mock1.decisionPassThrough = true;
 
             manager.AddPredictedEntity(mock1);
-            manager.SetLocalEntity(1);
+            manager.OnEntityOwnershipChanged(1, true);
             manager.protectFromOversimulation = true;
             
             int predictionAcceptable = 0;
@@ -286,7 +279,7 @@ namespace Prediction.Tests
 
             clientHearatbeatSends = clientSends = serverSends = serverWorldSends = 0;
             manager.AddPredictedEntity(mock1);
-            manager.SetLocalEntity(1);
+            manager.OnEntityOwnershipChanged(1, true);
             
             for (int i = 0; i < 20; ++i)
             {
@@ -300,7 +293,7 @@ namespace Prediction.Tests
             
             clientHearatbeatSends = clientSends = serverSends = serverWorldSends = 0;
             mock1.SetControlledLocally(false);
-            manager.UnsetLocalEntity(1);
+            manager.OnEntityOwnershipChanged(1, false);
             
             for (int i = 0; i < 20; ++i)
             {
@@ -312,6 +305,8 @@ namespace Prediction.Tests
             Assert.AreEqual(0, serverSends);
             Assert.AreEqual(0, serverWorldSends);
         }
+        
+        //TODO: test SetLocalEntity changes
     }
 }
 #endif

@@ -58,6 +58,7 @@ namespace Prediction.Tests
             manager.clientHeartbeadSender = (a) => { clientHearatbeatSends++; };
             manager.serverStateSender = (a, b, c) => { serverSends++; };
             manager.serverWorldStateSender = (a, b) => { serverWorldSends++; };
+            manager.serverSetControlledLocally = (a, b, c) => { };
             manager.connectionsIterator = () =>
             {
                 return new int[] { 1, 2, 3 };
@@ -196,7 +197,76 @@ namespace Prediction.Tests
             Assert.AreEqual(4, su32.state.tickId);
         }
         
-        // More tests about this...
+        [Test]
+        public void TestOwnershipSetAndUnset()
+        {
+            manager.SetEntityOwner(serverEntity1, 3);
+            Assert.AreEqual(3, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(2, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(null, manager.GetEntity(1));
+            Assert.AreEqual(serverEntity1, manager.GetEntity(3));
+            
+            manager.UnsetOwnership(serverEntity1);
+            Assert.AreEqual(-1, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(2, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(null, manager.GetEntity(3));
+            Assert.AreEqual(null, manager.GetEntity(1));
+
+            manager.SetEntityOwner(serverEntity1, 1);
+            Assert.AreEqual(1, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(2, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(serverEntity1, manager.GetEntity(1));
+            Assert.AreEqual(null, manager.GetEntity(3));
+            
+            manager.UnsetOwnership(1);
+            Assert.AreEqual(-1, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(2, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(null, manager.GetEntity(3));
+            Assert.AreEqual(null, manager.GetEntity(1));
+        }
+        
+        [Test]
+        public void TestOwnershipSwap()
+        {
+            manager.SetEntityOwner(serverEntity1, 3);
+            Assert.AreEqual(3, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(2, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(null, manager.GetEntity(1));
+            Assert.AreEqual(serverEntity1, manager.GetEntity(3));
+            
+            manager.SetEntityOwner(serverEntity2, 3);
+            Assert.AreEqual(-1, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(3, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(null, manager.GetEntity(1));
+            Assert.AreEqual(serverEntity2, manager.GetEntity(3));
+            
+            manager.SetEntityOwner(serverEntity1, 0);
+            Assert.AreEqual(0, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(3, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(serverEntity1, manager.GetEntity(0));
+            Assert.AreEqual(null, manager.GetEntity(1));
+            Assert.AreEqual(serverEntity2, manager.GetEntity(3));
+            
+            manager.SetEntityOwner(serverEntity2, 0);
+            Assert.AreEqual(-1, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(0, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(serverEntity2, manager.GetEntity(0));
+            Assert.AreEqual(null, manager.GetEntity(1));
+            Assert.AreEqual(null, manager.GetEntity(3));
+        }
+        
+        [Test]
+        public void TestOwnershipSwap2()
+        {
+            manager.SetEntityOwner(serverEntity2, 0);
+            manager.SetEntityOwner(serverEntity1, 3);
+            Assert.AreEqual(3, manager.GetOwner(serverEntity1));
+            Assert.AreEqual(0, manager.GetOwner(serverEntity2));
+            Assert.AreEqual(serverEntity2, manager.GetEntity(0));
+            Assert.AreEqual(null, manager.GetEntity(1));
+            Assert.AreEqual(null, manager.GetEntity(2));
+            Assert.AreEqual(serverEntity1, manager.GetEntity(3));
+        }
     }
 }
 #endif

@@ -290,7 +290,6 @@ namespace Prediction
             localInputBuffer.Clear();
             localStateBuffer.Clear();
             serverStateBuffer.Clear();
-            isControlledLocally = false;
             //TODO: consider if this is needed? it probably is
             //interpolationsProvider.Clear();
         }

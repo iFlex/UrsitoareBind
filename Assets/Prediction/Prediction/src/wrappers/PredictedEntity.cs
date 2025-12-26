@@ -10,7 +10,6 @@ namespace Prediction.wrappers
         ClientPredictedEntity GetClientEntity();
         ServerPredictedEntity GetServerEntity();
         PredictedEntityVisuals GetVisualsControlled();
-        void SetControlledLocally(bool controlledLocally);
         bool IsControlledLocally();
         bool IsServer();
         bool IsClient();
@@ -30,21 +29,6 @@ namespace Prediction.wrappers
             }
         }
         
-        void RegisterControlledLocally(bool isControlled)
-        {
-            if (IsClient())
-            {
-                if (isControlled)
-                {
-                    PredictionManager.Instance.SetLocalEntity(GetId());    
-                }
-                else
-                {
-                    PredictionManager.Instance.UnsetLocalEntity(GetId());    
-                }
-            }
-        }
-        
         void Register()
         {
             if (IsClient())
@@ -54,7 +38,7 @@ namespace Prediction.wrappers
             if (IsServer())
             {
                 PredictionManager.Instance.AddPredictedEntity(GetServerEntity());
-                PredictionManager.Instance.SetEntityOwner(GetServerEntity(), GetOwnerId());
+                //PredictionManager.Instance.SetEntityOwner(GetServerEntity(), GetOwnerId());
             }
         }
 

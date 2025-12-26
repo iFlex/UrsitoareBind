@@ -25,6 +25,8 @@ namespace Prediction.Tests
         {
             
         }
+        
+        //TODO: test swapping ownership, see that the buffers are cleared and new ticks are accepted correctly
     }
 }
 #endif

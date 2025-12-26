@@ -58,6 +58,9 @@ namespace Prediction
         public Action<int, uint, PhysicsStateRecord>    serverStateSender;
         // connectionId, world state
         public Action<int, WorldStateRecord> serverWorldStateSender;
+        // connectionId, entityId, controlledLocally
+        public Action<int, uint, bool>    serverSetControlledLocally;
+        
         public Func<IEnumerable<int>> connectionsIterator;
         private WorldStateRecord _worldStateRecord = new WorldStateRecord();
         
@@ -123,6 +126,10 @@ namespace Prediction
 
             if (isServer)
             {
+                if (serverSetControlledLocally == null)
+                {
+                    throw new Exception("INVALID_CONFIG: no serverSetControlledLocally provided");
+                }
                 if (connectionsIterator == null)
                 {
                     throw new Exception("INVALID_CONFIG: no connectionsIterator provided");
@@ -150,46 +157,73 @@ namespace Prediction
         {
             Instance = null;
         }
+
+        public int GetOwner(ServerPredictedEntity entity)
+        {
+            return _entityToOwnerConnId.GetValueOrDefault(entity, -1);
+        }
+
+        public ServerPredictedEntity GetEntity(int ownerId)
+        {
+            return _connIdToEntity.GetValueOrDefault(ownerId, null);
+        }
         
         //TODO: unit test!
-        //TODO: detect noops!
         public void SetEntityOwner(ServerPredictedEntity entity, int ownerId)
+        {
+            if (!isServer)
+                throw new Exception("INVALID_USE: called SetEntityOwner on non server entity");
+            
+            if (entity == null)
+                return;
+            
+            Debug.Log($"[PredictionManager][SetEntityOwner] SERVER ({entity.id}) ownerId:{ownerId} entity:{entity}");
+            if (_connIdToEntity.GetValueOrDefault(ownerId, null) == entity)
+            {
+                //NOOP
+                return;
+            }
+            
+            UnsetOwnership(ownerId);
+            UnsetOwnership(entity);
+            SetOwnership(entity, ownerId);
+        }
+
+        public void UnsetOwnership(ServerPredictedEntity entity)
+        {
+            if (_entityToOwnerConnId.ContainsKey(entity))
+            {
+                UnsetOwnership(_entityToOwnerConnId[entity]);    
+            }
+        }
+        
+        //TODO: unit test
+        public void UnsetOwnership(int ownerId)
+        {
+            if (!isServer)
+                throw new Exception("INVALID_USE: called SetEntityOwner on non server entity");
+            
+            ServerPredictedEntity entity = _connIdToEntity.GetValueOrDefault(ownerId, null);
+            Debug.Log($"[PredictionManager][UnsetOwnership] SERVER ownerId:{ownerId} entity:{entity}");
+            if (entity != null)
+            {
+                _connIdToEntity.Remove(ownerId);
+                _entityToOwnerConnId.Remove(entity);
+                entity.Reset(); //Prepare for new stream of tickIds
+                serverSetControlledLocally.Invoke(ownerId, entity.id, false);
+            }
+        }
+    
+        //TODO: unit test
+        void SetOwnership(ServerPredictedEntity entity, int ownerId)
         {
             if (entity == null)
                 return;
             
-            UnsetOwnership(ownerId);
-            UnsetOwnership(entity);
-            Debug.Log($"[PredictionManager][SetEntityOwner] SERVER ({entity.id}) ownerId:{ownerId} entity:{entity}");
-            SetOwnership(entity, ownerId);
-        }
-
-        void UnsetOwnership(ServerPredictedEntity entity)
-        {
-            UnsetOwnership(_entityToOwnerConnId.GetValueOrDefault(entity, 0));    
-        }
-        
-        void UnsetOwnership(int ownerId)
-        {
-            if (ownerId == 0)
-                return;
-            
-            ServerPredictedEntity entity = _connIdToEntity.GetValueOrDefault(ownerId, null);
-            Debug.Log($"[PredictionManager][UnsetOwnership] SERVER ownerId:{ownerId} entity:{entity}");
-            _connIdToEntity.Remove(ownerId);
-            if (entity != null)
-            {
-                _entityToOwnerConnId[entity] = 0; //Back to server ownership
-            }
-        }
-
-        void SetOwnership(ServerPredictedEntity entity, int ownerId)
-        {
             _entityToOwnerConnId[entity] = ownerId;
-            if (ownerId != 0)
-            {
-                _connIdToEntity[ownerId] = entity;
-            }
+            _connIdToEntity[ownerId] = entity;
+            entity.Reset(); //Prepare for new stream of tickIds
+            serverSetControlledLocally.Invoke(ownerId, entity.id, true);
         }
         
         public void AddPredictedEntity(ServerPredictedEntity entity)
@@ -270,7 +304,7 @@ namespace Prediction
                     PHYSICS_CONTROLLED.Untrack(ent.rigidbody);
                 }
             }
-            if (id == localEntityId)
+            if (id == localEntityId && isClient)
             {
                 UnsetLocalEntity(id);
             }
@@ -289,10 +323,19 @@ namespace Prediction
             return _predictedEntitiesGO.Contains(entity.gameObject);
         }
         
-        public void SetLocalEntity(uint id)
+        //TODO: unit test
+        void SetLocalEntity(uint id)
         {
+            if (!isClient)
+                throw new Exception($"INVALID_USAGE: called SetLocalEntity on non client instance!");
+            
             if (DEBUG)
                 Debug.Log($"[PredictionManager][SetLocalEntity]({id})");
+            
+            if (localEntity != null)
+            {
+                localEntity.SetControlledLocally(false);
+            }
             
             localEntity = _clientEntities.GetValueOrDefault(id, null);
             localEntityId = 0;
@@ -302,16 +345,16 @@ namespace Prediction
                 localEntityId = id;
                 localGO = localEntity.gameObject;
                 lastClientAppliedTick = 0;
+                localEntity.SetControlledLocally(true);
             }
         }
-
-        public void SetLocalEntity(AbstractPredictedEntity entity)
+        
+        //TODO: unit test
+        void UnsetLocalEntity(uint id)
         {
-            SetLocalEntity(entity.id);
-        }
-
-        public void UnsetLocalEntity(uint id)
-        {
+            if (!isClient)
+                throw new Exception($"INVALID_USAGE: called UnsetLocalEntity on non client instance!");
+            
             if (localEntityId == id)
             {
                 UnsetLocalEntity();
@@ -320,6 +363,13 @@ namespace Prediction
 
         void UnsetLocalEntity()
         {
+            if (!isClient)
+                throw new Exception($"INVALID_USAGE: called UnsetLocalEntity on non client instance!");
+            
+            if (localEntity != null)
+            {
+                localEntity.SetControlledLocally(false);
+            }
             localEntity = null;
             localEntityId = 0;
         }
@@ -663,6 +713,23 @@ namespace Prediction
             if (entity != null && (entityId == localEntityId || (isClient && !isServer)))
             {
                 entity.BufferServerTick(lastClientAppliedTick, stateRecord);
+            }
+        }
+
+        public void OnEntityOwnershipChanged(uint entityId, bool owned)
+        {
+            if (!isClient)
+                throw new Exception("COMPONENT_MISUSE: OnEntityOwnershipChanged called on non client entity");
+            if (DEBUG)
+                Debug.Log($"[PredictionManager][OnEntityOwnershipChanged] entityId:{entityId} owned:{owned}");
+
+            if (owned)
+            {
+                SetLocalEntity(entityId);
+            }
+            else
+            {
+                UnsetLocalEntity(entityId);
             }
         }
 
