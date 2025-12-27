@@ -180,15 +180,28 @@ namespace Prediction
             PopulatePhysicsStateRecord(tickId, stateData);
             newStateReached.Dispatch(stateData);
         }
-        
+
+        public uint resimChecksSkippedDueToLackOfServerData = 0;
+        public uint resimChecksSkippedDueToServerAheadOfClient = 0;
         public virtual PredictionDecision GetPredictionDecision(uint lastAppliedTick, out uint fromTick)
         {
             fromTick = 0;
             //NOTE: .GetEnt() is always behind lastAppliedTick, so should be fine...
             PhysicsStateRecord serverState = serverStateBuffer.GetEnd();
             //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
-            if (serverState == null || lastAppliedTick <= serverState.tickId)
+            if (serverState == null)
+            {
+                //TODO: unit test
+                resimChecksSkippedDueToLackOfServerData++;
                 return PredictionDecision.NOOP;
+            }
+
+            if (lastAppliedTick <= serverState.tickId)
+            {
+                //TODO: unit test?
+                resimChecksSkippedDueToServerAheadOfClient++;
+                return PredictionDecision.NOOP;
+            }
             
             fromTick = serverState.tickId;
             return resimulationEligibilityCheckHook(serverState.tickId, localStateBuffer, serverStateBuffer);

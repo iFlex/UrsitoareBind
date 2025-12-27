@@ -14,6 +14,9 @@ namespace Prediction
     public class PredictionManager
     {
         public static bool DEBUG = false;
+        public static bool DO_RESIM = true;
+        public static bool DO_SNAP = true;
+        
         //TODO: guard singleton
         public static PredictionManager Instance;
         //TODO: validate presence of all static providers
@@ -506,6 +509,9 @@ namespace Prediction
         public bool resimulating = false;
         void Resimulate(uint startTick)
         {
+            if (!DO_RESIM)
+                return;
+            
             if (tickId < startTick)
             {
                 resimSkipNotEnoughHistory++;
@@ -558,6 +564,9 @@ namespace Prediction
         //TODO: unit test this
         void Snap()
         {
+            if (!DO_SNAP)
+                return;
+            
             foreach (KeyValuePair<uint, ClientPredictedEntity> pair in _clientEntities)
             {
                 if (pair.Value.GetPredictionDecision(tickId, out uint localFromTick) == PredictionDecision.SNAP)
