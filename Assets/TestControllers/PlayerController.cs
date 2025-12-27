@@ -25,8 +25,6 @@ public abstract class PlayerController : NetworkBehaviour, PredictableComponent,
     
     void Start()
     {
-        SingletonUtils.CURRENT_DECIDER =
-            (SimpleConfigurableResimulationDecider)PredictionManager.SNAPSHOT_INSTANCE_RESIM_CHECKER;
         if (isShared)
         {
             renderer.material.color = Color.red;
