@@ -23,13 +23,8 @@ namespace Prediction
         public static Func<VisualsInterpolationsProvider> INTERPOLATION_PROVIDER = () => new MovingAverageInterpolator();
         public static SingleSnapshotInstanceResimChecker SNAPSHOT_INSTANCE_RESIM_CHECKER = new SimpleConfigurableResimulationDecider();
         public static PhysicsController PHYSICS_CONTROLLER = new RewindablePhysicsController();
-        
         //TODO: do we still need this?
         public static Func<double> ROUND_TRIP_GETTER;
-        
-        [SerializeField] private GameObject localGO;
-        private ClientPredictedEntity localEntity;
-        private uint localEntityId;
         
         //TODO: protected
         //TODO: you don't need this anymore if each entity can provide you with their id...
@@ -42,7 +37,11 @@ namespace Prediction
         public Dictionary<uint, ClientPredictedEntity> _clientEntities = new Dictionary<uint, ClientPredictedEntity>();
         public HashSet<PredictedEntity> _predictedEntities = new HashSet<PredictedEntity>();
         private HashSet<GameObject> _predictedEntitiesGO = new HashSet<GameObject>();
-        
+
+        [SerializeField] private GameObject localGO;
+        private ClientPredictedEntity localEntity;
+        private uint localEntityId;
+
         public bool isClient;
         public bool isServer;
         //TODO: package private
@@ -399,6 +398,22 @@ namespace Prediction
             ClientPostSimTick();
             ServerPostSimTick();
             tickId++;
+        }
+
+        public void Clear()
+        {
+            //TODO: unit test
+            tickId = 1;
+            UnsetLocalEntity();
+            // CLEAR ALL TRACKING
+            _serverEntityToId.Clear();
+            _idToServerEntity.Clear();
+            _entityToOwnerConnId.Clear();
+            _connIdToEntity.Clear();
+            _connIdToLatestTick.Clear();
+            _clientEntities.Clear();
+            _predictedEntities.Clear();
+            _predictedEntitiesGO.Clear();
         }
 
         int PredictionDecisionToInt(PredictionDecision decision)

@@ -31,6 +31,7 @@ namespace Prediction
         {
             interpolationProvider = provider;
             this.clientPredictedEntity = clientPredictedEntity;
+            clientPredictedEntity.onReset.AddEventListener(OnShouldReset);
             //TODO: what? why artifficial delay?
             currentTimeStep -= artifficialDelay;
             
@@ -79,6 +80,11 @@ namespace Prediction
             interpolationProvider.Update(Time.deltaTime);
         }
 
+        void OnShouldReset(bool ign)
+        {
+            Reset();
+        }
+        
         public void Reset()
         {
             interpolationProvider?.Reset();

@@ -313,10 +313,10 @@ namespace Prediction
             localInputBuffer.Clear();
             localStateBuffer.Clear();
             serverStateBuffer.Clear();
-            //TODO: consider if this is needed? it probably is
-            //interpolationsProvider.Clear();
+            onReset.Dispatch(true);
         }
-        
+
+        public SafeEventDispatcher<bool> onReset = new();
         public SafeEventDispatcher<PhysicsStateRecord> newStateReached = new();
         public SafeEventDispatcher<bool> resimulation = new();
         public SafeEventDispatcher<bool> resimulationStep = new();
