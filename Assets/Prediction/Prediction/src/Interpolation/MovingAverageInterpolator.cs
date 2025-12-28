@@ -151,17 +151,14 @@ namespace Prediction.Interpolation
             buffer.Add(record);
             averagedBuffer.Add(GetNextProcessedState());
         }
-
+        
+        private Vector4 _rotationAvgAccumulator = Vector4.zero;
         void AddToWindow(PhysicsStateRecord accumulator, PhysicsStateRecord newItem)
         {
             accumulator.position += newItem.position;
             accumulator.velocity += newItem.velocity;
             accumulator.angularVelocity += newItem.angularVelocity;
-            accumulator.rotation = new Quaternion(
-                accumulator.rotation.x + newItem.rotation.x,
-                accumulator.rotation.y + newItem.rotation.y,
-                accumulator.rotation.z + newItem.rotation.z,
-                accumulator.rotation.w + newItem.rotation.w);
+            _rotationAvgAccumulator += new Vector4(newItem.rotation.x, newItem.rotation.y, newItem.rotation.z, newItem.rotation.w);
         }
 
         void FinalizeWindow(PhysicsStateRecord accumulator, int count)
@@ -169,11 +166,17 @@ namespace Prediction.Interpolation
             accumulator.position /= count;
             accumulator.velocity /= count;
             accumulator.angularVelocity /= count;
-            accumulator.rotation = new Quaternion(
-                accumulator.rotation.x / count,
-                accumulator.rotation.y / count,
-                accumulator.rotation.z / count,
-                accumulator.rotation.w / count);
+            accumulator.rotation = NormalizeQuaternion(_rotationAvgAccumulator / count);
+            _rotationAvgAccumulator = Vector4.zero;
+        }
+        
+        private Quaternion NormalizeQuaternion(Vector4 v)
+        {
+            float lengthSq = v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w;
+            if (lengthSq < Mathf.Epsilon) return Quaternion.identity;
+        
+            float length = Mathf.Sqrt(lengthSq);
+            return new Quaternion(v.x / length, v.y / length, v.z / length, v.w / length);
         }
         
         PhysicsStateRecord GetNextProcessedState()
