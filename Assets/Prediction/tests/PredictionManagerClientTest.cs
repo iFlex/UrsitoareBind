@@ -306,6 +306,7 @@ namespace Prediction.Tests
             Assert.AreEqual(0, serverWorldSends);
         }
         
+        //TODO: test resimulation with rewind and exact positions checked as well as exact number of steps applied checked
         //TODO: test SetLocalEntity changes
     }
 }

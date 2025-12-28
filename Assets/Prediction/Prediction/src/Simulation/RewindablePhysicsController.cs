@@ -24,6 +24,11 @@ namespace Prediction.Simulation
         {
             this.bufferSize = bufferSize;
         }
+
+        public uint GetTick()
+        {
+            return tickId;
+        }
         
         public void Setup(bool isServer)
         {
