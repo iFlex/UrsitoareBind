@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿#if (UNITY_EDITOR)
+using NUnit.Framework;
 using Prediction.data;
 using Prediction.Simulation;
 using UnityEngine;
@@ -104,3 +105,4 @@ namespace Prediction.Tests.simulation
         //TODO: try to resimulate with object spawn
     }
 }
+#endif

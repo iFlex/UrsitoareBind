@@ -13,7 +13,7 @@ namespace DefaultNamespace
         private int breakingDistCount = 0;
         private int directSnapCount = 0;
         
-        public override PredictionDecision Check(PhysicsStateRecord l, PhysicsStateRecord s)
+        public override PredictionDecision Check(uint entityId, uint tickId, PhysicsStateRecord l, PhysicsStateRecord s)
         {
             float dist = (l.position - s.position).magnitude;
             if (dist > maxdist)
@@ -21,7 +21,7 @@ namespace DefaultNamespace
                 maxdist = dist;
             }
             
-            PredictionDecision outcome = base.Check(l, s);
+            PredictionDecision outcome = base.Check(entityId, tickId, l, s);
             if (outcome == PredictionDecision.RESIMULATE)
             {
                 totalBreakingDist += dist;

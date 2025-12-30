@@ -228,12 +228,12 @@ GameObject:
   - component: {fileID: 2541580259694157585}
   - component: {fileID: 1526699890830082510}
   - component: {fileID: 9152599846633226386}
-  - component: {fileID: -5812049958299718731}
+  - component: {fileID: 5756400233978040421}
   - component: {fileID: 2786243932360149106}
   - component: {fileID: 6699726022370081141}
   - component: {fileID: 5765951825069291079}
   m_Layer: 0
-  m_Name: PlayerCar
+  m_Name: PlayerCarOld
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -264,8 +264,8 @@ Rigidbody:
   m_GameObject: {fileID: 4463793978811421536}
   serializedVersion: 5
   m_Mass: 1
-  m_LinearDamping: 0.01
-  m_AngularDamping: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 2
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -280,7 +280,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!65 &9152599846633226386
 BoxCollider:
@@ -303,7 +303,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 3}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &-5812049958299718731
+--- !u!114 &5756400233978040421
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -312,9 +312,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 4463793978811421536}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0ebe89176f324b728792465b2197587a, type: 3}
+  m_Script: {fileID: 11500000, guid: aa39489518284fd4b6fd9654f9a92e9e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerRocketController
+  m_EditorClassIdentifier: 
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
@@ -326,21 +326,9 @@ MonoBehaviour:
   fcam: {fileID: 2577150116825213703}
   redy: 0
   dbgRedy: 0
-  mass: 1
-  gAcceleration: 9.89
-  normalFriction: 0.01
-  breakingFriction: 5
-  fwdPower: 5
-  pitchPower: 3
-  yawPower: 3
-  rollPower: 2
+  powerMagnitude: 5
+  steerPowerMagnitude: 4.5
   boostPowerMultiplier: 10
-  throttle: 0
-  pitch: 0
-  yaw: 0
-  roll: 0
-  isBoosting: 0
-  isBreaking: 0
 --- !u!114 &2786243932360149106
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -354,7 +342,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 4191876620
+  _assetId: 3983151734
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
@@ -394,7 +382,7 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   components:
-  - {fileID: -5812049958299718731}
+  - {fileID: 5756400233978040421}
   bufferSize: 50
   _rigidbody: {fileID: 1526699890830082510}
   visuals: {fileID: 6699726022370081141}

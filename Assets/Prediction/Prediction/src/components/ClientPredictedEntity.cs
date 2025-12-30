@@ -12,15 +12,16 @@ namespace Prediction
         public static bool DEBUG = false;
         //STATE TRACKING
         public GameObject gameObject;
-
-        public Func<uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision>
+        // entityId, tickId, localHist, serverHist
+        public Func<uint, uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision>
             resimulationEligibilityCheckHook
         {
             get; 
             private set; 
         }
         
-        public Func<PhysicsStateRecord, PhysicsStateRecord, PredictionDecision> singleStateResimulationEligibilityHook
+        // entityId, tickId, localSnapshot, serverSnapshot
+        public Func<uint, uint, PhysicsStateRecord, PhysicsStateRecord, PredictionDecision> singleStateResimulationEligibilityHook
         {
             get;
             private set;
@@ -77,13 +78,13 @@ namespace Prediction
             }
         }
         
-        public void SetCustomEligibilityCheckHandler(Func<uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision> handler)
+        public void SetCustomEligibilityCheckHandler(Func<uint, uint, RingBuffer<PhysicsStateRecord>, TickIndexedBuffer<PhysicsStateRecord>, PredictionDecision> handler)
         {
             resimulationEligibilityCheckHook = handler;
             singleStateResimulationEligibilityHook = null;
         }
 
-        public void SetSingleStateEligibilityCheckHandler(Func<PhysicsStateRecord, PhysicsStateRecord, PredictionDecision> handler)
+        public void SetSingleStateEligibilityCheckHandler(Func<uint, uint, PhysicsStateRecord, PhysicsStateRecord, PredictionDecision> handler)
         {
             resimulationEligibilityCheckHook = _defaultResimulationEligibilityCheck;
             singleStateResimulationEligibilityHook = handler;
@@ -204,7 +205,7 @@ namespace Prediction
             }
             
             fromTick = serverState.tickId;
-            return resimulationEligibilityCheckHook(serverState.tickId, localStateBuffer, serverStateBuffer);
+            return resimulationEligibilityCheckHook(id, serverState.tickId, localStateBuffer, serverStateBuffer);
         }
 
         public uint lastSvTickId = 0;
@@ -232,13 +233,13 @@ namespace Prediction
             AddServerState(lastAppliedTick, serverState);
         }
 
-        PredictionDecision _defaultResimulationEligibilityCheck(uint tickId, RingBuffer<PhysicsStateRecord> clientStates,
+        PredictionDecision _defaultResimulationEligibilityCheck(uint entityId, uint tickId, RingBuffer<PhysicsStateRecord> clientStates,
             TickIndexedBuffer<PhysicsStateRecord> serverStates)
         {
             //TODO: ensure correct conversion from uint tick to index
             PhysicsStateRecord localState = clientStates.Get((int)tickId);
             PhysicsStateRecord serverState = serverStates.Get(tickId);
-            return singleStateResimulationEligibilityHook.Invoke(localState, serverState);
+            return singleStateResimulationEligibilityHook.Invoke(entityId, tickId, localState, serverState);
         }
 
         public uint countMissingServerHistory = 0;

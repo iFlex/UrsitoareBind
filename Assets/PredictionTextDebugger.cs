@@ -47,7 +47,13 @@ public class PredictionTextDebugger : MonoBehaviour
     
     void UpdateClient()
     {
-        client.text = $"ID:{PredictionManager.Instance.GetLocalEntity().id} RESIMULATING:{PredictionManager.Instance.resimulating}\n" +
+        if (PredictionManager.Instance.GetLocalEntity() == null)
+        {
+            client.text = "?";
+        }
+        else
+        {
+            client.text = $"ID:{PredictionManager.Instance.GetLocalEntity().id} RESIMULATING:{PredictionManager.Instance.resimulating}\n" +
                       $"Tick:{PredictionManager.Instance.tickId} | {PredictionManager.Instance.GetLocalEntity().lastTick}\n " + 
                       $"ServerDelay:{PredictionManager.Instance.GetLocalEntity().GetServerDelay()} | STick:{PredictionManager.Instance.GetLocalEntity().serverStateBuffer.GetEndTick()}\n " +
                       $"sv_oldTicks:{PredictionManager.Instance.GetLocalEntity().oldServerTickCount}\n " +
@@ -68,6 +74,8 @@ public class PredictionTextDebugger : MonoBehaviour
                       $"FPS:{1/Time.deltaTime}\n " +
                       $"FrameTime:{Time.deltaTime}\n";
 
+        }
+        
             foreach (PredictedEntity pe in PredictionManager.Instance._predictedEntities)
             {
                 if (pe.GetClientEntity() != PredictionManager.Instance.GetLocalEntity())
