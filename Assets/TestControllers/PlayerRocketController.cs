@@ -58,7 +58,6 @@ public class PlayerRocketController : PlayerController
         bool _isBoosting = Gamepad.current.buttonNorth.isPressed;
         bool _isBreaking = Gamepad.current.buttonSouth.isPressed;
         
-        Debug.Log(_throttle);
         data.WriteReset();
         data.WriteNextScalar(_throttle);
         data.WriteNextScalar(_pitch);
