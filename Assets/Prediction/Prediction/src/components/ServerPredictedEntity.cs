@@ -9,13 +9,12 @@ namespace Prediction
     public class ServerPredictedEntity : AbstractPredictedEntity
     {
         public static bool DEBUG = false;
+        public static bool APPLY_FORCES_TO_EACH_CATCHUP_INPUT = false;
+        public static bool FLUSH_BUFFER_WHEN_FULL = false;
         
         public GameObject gameObject;
         private PhysicsStateRecord serverStateBfr = new PhysicsStateRecord();
         private uint tickId;
-        
-        private uint _waitTicksBeforeSimStart;
-        private uint waitTicksBeforeSimStart;
         
         //TODO: package private
         public TickIndexedBuffer<PredictionInputRecord> inputQueue;
@@ -27,14 +26,12 @@ namespace Prediction
         public int bufferFullThreshold = 3; //Number of ticks to buffer before starting to send out the updates
         private bool bufferFilled = false;
 
-        public bool snapBufferWhenFull = false;
         
         //NOTE: if the client updates buffer grows past a certain threshold
         //that means the server has fallen behind time wise. So we should snap ahead to the latest client state.
         public bool catchup = true;
         public int catchupSections = 3;
         public int ticksPerCatchupSection = 0;
-        public bool applyForcesToEachCatchupInput = false;
         
         private uint lastAppliedTick = 0;
         
@@ -53,58 +50,66 @@ namespace Prediction
         public ServerPredictedEntity(uint id, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
             gameObject = rb.gameObject;
-            //TODO: configurable how much to wait before sim start...
-            _waitTicksBeforeSimStart = 0;
-            waitTicksBeforeSimStart = _waitTicksBeforeSimStart;
-            
             inputQueue = new TickIndexedBuffer<PredictionInputRecord>(bufferSize);
             inputQueue.emptyValue = null;
 
             ticksPerCatchupSection = Mathf.FloorToInt(bufferSize / catchupSections) + 1;
         }
 
+        DesyncEvent devt = new DesyncEvent();
         void HandleTickInput()
         {
             //NOTE: this also loads TickId with the latest value
-            int inputsToApply;
+            int inputsToApply = 0;
             uint maxDelay = inputQueue.GetRange();
             if (maxDelay > maxClientDelay)
             {
                 maxClientDelay = maxDelay;
             }
             
-            if (snapBufferWhenFull && inputQueue.GetFill() == inputQueue.GetCapacity())
+            if (FLUSH_BUFFER_WHEN_FULL && inputQueue.GetFill() == inputQueue.GetCapacity())
             {
                 //Buffer full, skip all
                 SnapToLatest();
                 inputsToApply = 1;
                 catchupBufferWipes++;
+                
+                devt.reason = DesyncReason.BUFFER_FLUSHED_DUE_TO_FULL;
+                devt.tickId = inputQueue.GetEndTick();
+                potentialDesync.Dispatch(devt);
             }
             else
             {
                 inputsToApply = GetInputsCount();  
             }
             
-            bool atLeastOneInput = false;
             if (inputsToApply > 1)
             {
                 catchupTicks += (uint) inputsToApply - 1U;
+                
+                devt.reason = DesyncReason.MULTIPLE_INPUTS_PER_FRAME;
+                devt.tickId = tickId;
+                potentialDesync.Dispatch(devt);
             }
             while (inputsToApply > 0)
             {
                 inputsToApply--;
-                PredictionInputRecord nextInput = TakeNextInput(false);
+                //NOTE: last applied input must not be removed as it will be when SamplePhysicsState runs...
+                PredictionInputRecord nextInput = TakeNextInput(inputsToApply > 0);
                 if (DEBUG)
                     Debug.Log($"[ServerPredictedEntity][ServerSimulationTick] id:{id} goID:{gameObject.GetInstanceID()} lastAppliedTick:{lastAppliedTick} buffRange:{inputQueue.GetRange()} buffFill:{inputQueue.GetFill()} nextInput:{nextInput}");
                 
                 if (nextInput != null)
                 {
-                    atLeastOneInput = true;
                     int delta = (int)(tickId > lastAppliedTick ? tickId - lastAppliedTick : lastAppliedTick - tickId);
                     lastAppliedTick = tickId;
                     if (delta > 1)
                     {
                         inputJumps++;
+                        
+                        devt.reason = DesyncReason.INPUT_JUMP;
+                        devt.tickId = tickId;
+                        potentialDesync.Dispatch(devt);
                     }
                 
                     if (ValidateState(TickDeltaToTimeDelta(delta), nextInput))
@@ -114,18 +119,27 @@ namespace Prediction
                     else
                     {
                         invalidInputs++;
+                        
+                        devt.reason = DesyncReason.INVALID_INPUT;
+                        devt.tickId = tickId;
+                        potentialDesync.Dispatch(devt);
                     }
-                    if (applyForcesToEachCatchupInput)
+                    
+                    if (APPLY_FORCES_TO_EACH_CATCHUP_INPUT)
                     {
                         ApplyForces();
                     }
                 }
             }
-            if (!atLeastOneInput)
+            if (inputsToApply == 0)
             {
                 ticksWithoutInput++;
+                
+                devt.reason = DesyncReason.NO_INPUT_FOR_SERVER_TICK;
+                devt.tickId = tickId;
+                potentialDesync.Dispatch(devt);
             }
-            if (!applyForcesToEachCatchupInput)
+            if (!APPLY_FORCES_TO_EACH_CATCHUP_INPUT)
             {
                 ApplyForces();
             }
@@ -149,7 +163,6 @@ namespace Prediction
                 }
                 ApplyForces();
             }
-            Tick();
             return GetTickId();
         }
 
@@ -209,20 +222,7 @@ namespace Prediction
         {
             //NOTE: use this when changing the controller of the plane.
             tickId = 0;
-            waitTicksBeforeSimStart = _waitTicksBeforeSimStart;
             inputQueue.Clear();
-        }
-
-        public void Tick()
-        {
-            if (waitTicksBeforeSimStart > 0)
-            {
-                waitTicksBeforeSimStart--;
-                if (waitTicksBeforeSimStart == 0)
-                {
-                    simulationStarted.Dispatch(true);
-                }
-            }
         }
         
         public uint GetTickId()
@@ -302,8 +302,22 @@ namespace Prediction
             inputQueue.Add(tick, pir);
             bufferFilled = false;
         }
+
+        public enum DesyncReason
+        {
+            NO_INPUT_FOR_SERVER_TICK = 0,
+            INPUT_JUMP = 0,
+            MULTIPLE_INPUTS_PER_FRAME = 1,
+            INVALID_INPUT = 2,
+            BUFFER_FLUSHED_DUE_TO_FULL = 3,
+        }
+        public struct DesyncEvent
+        {
+            public uint tickId;
+            public DesyncReason reason;
+        }
         
-        public SafeEventDispatcher<bool> simulationStarted = new();
         public SafeEventDispatcher<bool> firstTickArrived = new();
+        public SafeEventDispatcher<DesyncEvent> potentialDesync = new();
     }
 }

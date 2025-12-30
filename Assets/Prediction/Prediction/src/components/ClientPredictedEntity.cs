@@ -116,7 +116,8 @@ namespace Prediction
         {
             return localInputBuffer.Get((int)lastTick);
         }
-
+    
+        //TODO: unit test
         public void ClientFollowerSimulationTick(uint tickId)
         {
             if (isControlledLocally)
@@ -124,7 +125,6 @@ namespace Prediction
                 throw new Exception("COMPONENT_MISUSE: locally controlled entity called ClientFollowerSimulationTick");
             }
             
-            //TODO: consider if we need buffering here?
             PhysicsStateRecord psr = serverStateBuffer.GetEnd();
             if (psr != null)
             {
@@ -321,5 +321,6 @@ namespace Prediction
         public SafeEventDispatcher<PhysicsStateRecord> newStateReached = new();
         public SafeEventDispatcher<bool> resimulation = new();
         public SafeEventDispatcher<bool> resimulationStep = new();
+        //public SafeEventDispatcher<bool> potentialDesync = new();
     }
 }

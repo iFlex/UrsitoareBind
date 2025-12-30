@@ -550,7 +550,7 @@ namespace Prediction.Tests
             entity = new ServerPredictedEntity(0 , 21, rigidbody, test, new []{component}, new[]{component});
             entity.catchup = true;
             entity.useBuffering = true;
-            entity.snapBufferWhenFull = false;
+            ServerPredictedEntity.FLUSH_BUFFER_WHEN_FULL = false;
             
             Assert.AreEqual(8, entity.ticksPerCatchupSection);
             
