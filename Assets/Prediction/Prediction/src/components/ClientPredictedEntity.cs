@@ -188,7 +188,7 @@ namespace Prediction
         public uint resimChecksSkippedDueToServerAheadOfClient = 0;
         public static bool LOG_VELOCITIES = true;
         public static bool LOG_VELOCITIES_ALL = false;
-        public uint lastCheckedServerTickId;
+        public uint lastCheckedServerTickId = 0;
         
         private DesyncEvent devt;
         public virtual PredictionDecision GetPredictionDecision(uint lastAppliedTick, out uint fromTick)
@@ -225,11 +225,11 @@ namespace Prediction
                 Debug.Log($"[PREDICTION][DATA] i:{id} t:{lastAppliedTick} v:{rigidbody.linearVelocity.magnitude} av:{rigidbody.angularVelocity.magnitude}");
             }
 
-            if (serverState.tickId - lastAppliedTick > 1)
+            if (serverState.tickId > lastCheckedServerTickId && (serverState.tickId - lastCheckedServerTickId) > 1)
             {
                 devt.reason = DesyncReason.GAP_IN_SERVER_STREAM;
                 devt.tickId = lastAppliedTick;
-                devt.gapSize = lastAppliedTick - serverState.tickId;
+                devt.gapSize = serverState.tickId - lastCheckedServerTickId;
                 potentialDesync.Dispatch(devt);
             }
             
