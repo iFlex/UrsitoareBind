@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using Assets.Scripts.Systems.Events;
 using Prediction.data;
+using Prediction.policies.singleInstance;
 using Prediction.utils;
 using UnityEngine;
 
@@ -184,6 +186,11 @@ namespace Prediction
 
         public uint resimChecksSkippedDueToLackOfServerData = 0;
         public uint resimChecksSkippedDueToServerAheadOfClient = 0;
+        public static bool LOG_VELOCITIES = true;
+        public static bool LOG_VELOCITIES_ALL = false;
+        public uint lastCheckedServerTickId;
+        
+        private DesyncEvent devt;
         public virtual PredictionDecision GetPredictionDecision(uint lastAppliedTick, out uint fromTick)
         {
             fromTick = 0;
@@ -192,6 +199,10 @@ namespace Prediction
             //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
             if (serverState == null)
             {
+                devt.reason = DesyncReason.MISSING_SERVER_COMPARISON;
+                devt.tickId = lastAppliedTick;
+                potentialDesync.Dispatch(devt);
+                
                 //TODO: unit test
                 resimChecksSkippedDueToLackOfServerData++;
                 return PredictionDecision.NOOP;
@@ -199,11 +210,30 @@ namespace Prediction
 
             if (lastAppliedTick <= serverState.tickId)
             {
+                devt.reason = DesyncReason.SERVER_AHEAD_OF_CLIENT;
+                devt.tickId = lastAppliedTick;
+                potentialDesync.Dispatch(devt);
+                
                 //TODO: unit test?
                 resimChecksSkippedDueToServerAheadOfClient++;
                 return PredictionDecision.NOOP;
             }
+
+            if (LOG_VELOCITIES_ALL || (LOG_VELOCITIES && isControlledLocally))
+            {
+                //TODO: we should maybe just offer hooks for the host application to use instead of direct logging here...
+                Debug.Log($"[PREDICTION][DATA] i:{id} t:{lastAppliedTick} v:{rigidbody.linearVelocity.magnitude} av:{rigidbody.angularVelocity.magnitude}");
+            }
+
+            if (serverState.tickId - lastAppliedTick > 1)
+            {
+                devt.reason = DesyncReason.GAP_IN_SERVER_STREAM;
+                devt.tickId = lastAppliedTick;
+                devt.gapSize = serverState.tickId - lastAppliedTick;
+                potentialDesync.Dispatch(devt);
+            }
             
+            lastCheckedServerTickId = serverState.tickId;
             fromTick = serverState.tickId;
             return resimulationEligibilityCheckHook(id, serverState.tickId, localStateBuffer, serverStateBuffer);
         }
@@ -289,13 +319,33 @@ namespace Prediction
             resimTicksAsFollower++;
             //TODO: do we need anything here?
         }
+
+        public static bool TRACK_RESIM_DISCREPANCIES = true;
+        private Dictionary<uint, uint> tickResimCounter = new Dictionary<uint, uint>();
+        private PhysicsStateRecord prevResimState;
+        private SimpleConfigurableResimulationDecider resimDesyncComparator = new SimpleConfigurableResimulationDecider(float.MinValue, float.MinValue, float.MinValue, float.MinValue);
+        private uint resimCounter;
         
         public void PostResimulationStep(uint tickId)
         {
             //TODO: check conversion to int
             PhysicsStateRecord record = localStateBuffer.Get((int) tickId);
+            
+            if (isControlledLocally && TRACK_RESIM_DISCREPANCIES)
+            {
+                resimCounter = tickResimCounter.GetValueOrDefault(tickId, 0u) + 1;
+                prevResimState.From(record);
+                tickResimCounter[tickId] = resimCounter;
+            }
+            
             PopulatePhysicsStateRecord(tickId, record);
             resimulationStep.Dispatch(false);
+
+            if (isControlledLocally && TRACK_RESIM_DISCREPANCIES && resimCounter > 1)
+            {
+                resimDesyncComparator.Check(0, tickId, prevResimState, record);
+                //TODO: manually log here instead o relying on the logging to be on
+            }
         }
 
         public uint GetServerDelay()
@@ -316,11 +366,26 @@ namespace Prediction
             serverStateBuffer.Clear();
             onReset.Dispatch(true);
         }
-
+        
+        public enum DesyncReason
+        {
+            MISSING_SERVER_COMPARISON = 0,
+            GAP_IN_SERVER_STREAM = 1,
+            //LARGE_GAP_IN_SERVER_STREAM ? //todo add this with a good treshold?
+            SERVER_AHEAD_OF_CLIENT = 3, //shouldn't be possible
+        }
+        public struct DesyncEvent
+        {
+            public uint tickId;
+            public DesyncReason reason;
+            public uint gapSize;
+        }
+        
         public SafeEventDispatcher<bool> onReset = new();
         public SafeEventDispatcher<PhysicsStateRecord> newStateReached = new();
         public SafeEventDispatcher<bool> resimulation = new();
         public SafeEventDispatcher<bool> resimulationStep = new();
-        //public SafeEventDispatcher<bool> potentialDesync = new();
+        
+        public SafeEventDispatcher<DesyncEvent> potentialDesync = new();
     }
 }
