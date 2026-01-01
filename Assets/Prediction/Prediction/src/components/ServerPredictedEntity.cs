@@ -142,10 +142,18 @@ namespace Prediction
                 if (inputQueue.GetFill() > 0)
                 {
                     totalBufferingTicks++;
+                    
+                    devt.reason = DesyncReason.INPUT_BUFFERED;
+                    devt.tickId = tickId;
+                    potentialDesync.Dispatch(devt);
                 }
                 else
                 {
                     totalMissingInputTicks++;
+                    
+                    devt.reason = DesyncReason.NO_INPUT_FOR_SERVER_TICK;
+                    devt.tickId = tickId;
+                    potentialDesync.Dispatch(devt);
                 }
                 ApplyForces();
             }
@@ -303,11 +311,12 @@ namespace Prediction
         public enum DesyncReason
         {
             NO_INPUT_FOR_SERVER_TICK = 0,
-            INPUT_JUMP = 0,
-            MULTIPLE_INPUTS_PER_FRAME = 1,
-            INVALID_INPUT = 2,
-            LATE_TICK = 3,
-            TICK_OVERFLOW = 4
+            INPUT_BUFFERED = 1,
+            INPUT_JUMP = 2,
+            MULTIPLE_INPUTS_PER_FRAME = 3,
+            INVALID_INPUT = 4,
+            LATE_TICK = 5,
+            TICK_OVERFLOW = 6,
         }
         public struct DesyncEvent
         {

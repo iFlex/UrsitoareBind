@@ -280,8 +280,13 @@ namespace Prediction
             {
                 //TODO: do we need to do something?
                 countMissingServerHistory++;
+
+                devt.reason = DesyncReason.SNAP_TO_SERVER_NO_DATA;
+                devt.tickId = tickId;
+                potentialDesync.Dispatch(devt);
                 return;
             }
+            
             SnapTo(state);
         }
 
@@ -373,6 +378,7 @@ namespace Prediction
             GAP_IN_SERVER_STREAM = 1,
             //LARGE_GAP_IN_SERVER_STREAM ? //todo add this with a good treshold?
             SERVER_AHEAD_OF_CLIENT = 3, //shouldn't be possible
+            SNAP_TO_SERVER_NO_DATA = 4
         }
         public struct DesyncEvent
         {

@@ -530,14 +530,15 @@ namespace Prediction
             if (!DO_RESIM)
                 return;
             
-            if (tickId < startTick)
+            if (tickId <= startTick)
             {
+                //NOTE: this shouldn't be possible
+                Debug.Log($"[PredictionManager][Resimulate] tickId:{tickId} startTick:{startTick}. Are you misusing the system? startTick cannot be larger or equal than the current tickId");
                 resimSkipNotEnoughHistory++;
                 return;
             }
 
             resimulating = true;
-            PHYSICS_CONTROLLER.BeforeResimulate(null);
             uint rewind = tickId - startTick;
             if (!PHYSICS_CONTROLLER.Rewind(rewind))
             {
@@ -546,6 +547,8 @@ namespace Prediction
                 return;
             }
             
+            //TODO: decide what to do with these hooks...
+            PHYSICS_CONTROLLER.BeforeResimulate(null);
             if (maxRewindDistance < rewind)
             {
                 maxRewindDistance = rewind;
@@ -562,12 +565,14 @@ namespace Prediction
                     pair.Value.PostResimulationStep(startTick);
                 }
             }
+            //All relevant bodies are now at the end of startTick
             
             uint index = startTick + 1;
             while (index < tickId)
             {
                 foreach (KeyValuePair<uint, ClientPredictedEntity> pair in _clientEntities)
                 {
+                    //Note: this will run logic on local authority: fetchInput, loadInput, applyForces
                     pair.Value.PreResimulationStep(index);
                 }
                 PHYSICS_CONTROLLER.Resimulate(null);
@@ -649,11 +654,11 @@ namespace Prediction
             }
         }
 
-        void SendSpectatorHeartbeat(uint tickId)
+        void SendSpectatorHeartbeat(uint tid)
         {
             try
             {
-                clientHeartbeadSender?.Invoke(tickId);
+                clientHeartbeadSender?.Invoke(tid);
             }
             catch (Exception e)
             {
@@ -726,14 +731,14 @@ namespace Prediction
             }
         }
         
-        void MarkLatestAppliedTickId(uint tickId, ServerPredictedEntity entity)
+        void MarkLatestAppliedTickId(uint tid, ServerPredictedEntity entity)
         {
             //FODO: performance
             if (!_entityToOwnerConnId.ContainsKey(entity))
                 return;
             
             int connId = _entityToOwnerConnId[entity];
-            _connIdToLatestTick[connId] = tickId;
+            _connIdToLatestTick[connId] = tid;
         }
         
         //FODO: performance
@@ -742,9 +747,9 @@ namespace Prediction
             return _connIdToLatestTick.GetValueOrDefault(connId, tickId);
         }
 
-        public void OnHeartbeatReceived(int connectionId, uint tickId)
+        public void OnHeartbeatReceived(int connectionId, uint tid)
         {
-            _connIdToLatestTick[connectionId] = tickId;
+            _connIdToLatestTick[connectionId] = tid;
         }
         
         public void OnServerWorldStateReceived(WorldStateRecord wsr)
