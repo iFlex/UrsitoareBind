@@ -12,6 +12,8 @@ namespace Prediction
     public class ClientPredictedEntity : AbstractPredictedEntity
     {
         public static bool DEBUG = false;
+        public static bool LOG_USED_INPUTS = false;
+        
         //STATE TRACKING
         public GameObject gameObject;
         // entityId, tickId, localHist, serverHist
@@ -158,6 +160,10 @@ namespace Prediction
             //TODO: correctly convert tick to index!
             PredictionInputRecord inputData = localInputBuffer.Get((int)tickId);
             SampleInput(inputData);
+            if (LOG_USED_INPUTS)
+            {
+                Debug.Log($"[SIMULATION][INPUT] i:{id} t:{tickId} input:{inputData}");
+            }
             return inputData;
         }
         
@@ -318,6 +324,10 @@ namespace Prediction
             resimulationStep.Dispatch(true);
             //TODO: correct conversion of tickId to index plz
             PredictionInputRecord inputData = localInputBuffer.Get((int) tickId);
+            if (LOG_USED_INPUTS)
+            {
+                Debug.Log($"[RESIMULATION][INPUT] i:{id} t:{tickId} input:{inputData}");
+            }
             LoadInput(inputData);
             ApplyForces();
             resimTicks++;
@@ -405,5 +415,8 @@ namespace Prediction
         public SafeEventDispatcher<bool> resimulationStep = new();
         
         public SafeEventDispatcher<DesyncEvent> potentialDesync = new();
+        
+        //TODO: fire this during simulation and resimulation allowing others to hook into it and debug
+        public SafeEventDispatcher<PredictionInputRecord> inputUsed = new();
     }
 }
