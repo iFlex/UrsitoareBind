@@ -757,7 +757,7 @@ namespace Prediction
             
             if (LOG_PRE_SIM_STATE)
             {
-                Debug.Log($"[CL][PRESIMULATION][DATA] i:{entity.id} t:{tickId} p:{entity.rigidbody.position.ToString("F10")} r:{entity.rigidbody.rotation.ToString("F10")}");
+                Debug.Log($"[SV][PRESIMULATION][DATA] i:{entity.id} t:{tickId} p:{entity.rigidbody.position.ToString("F10")} r:{entity.rigidbody.rotation.ToString("F10")}");
             }
         }
         

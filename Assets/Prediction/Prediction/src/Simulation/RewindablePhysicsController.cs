@@ -9,6 +9,8 @@ namespace Prediction.Simulation
     public class RewindablePhysicsController : PhysicsController
     {
         public static bool DEBUG_STEP = false;
+        public static bool LOG_STEP = false;
+        
         public static RewindablePhysicsController Instance;
         
         public int bufferSize = 60;
@@ -38,9 +40,30 @@ namespace Prediction.Simulation
             //TODO: can i configure the physics engine here?
         }
 
+        void LogState()
+        {
+            foreach (KeyValuePair<Rigidbody, RingBuffer<PhysicsStateRecord>> pair in worldHistory)
+            {
+                PhysicsStateRecord psr = pair.Value.Get((int) tickId);
+                psr.From(pair.Key);   
+                psr.tickId = tickId;
+                Debug.Log($"[PHYSICS_CONTROLLER] gid:{pair.Key.gameObject.GetInstanceID()} pt:{tickId} p:{pair.Key.position.ToString("F10")} r:{pair.Key.rotation.ToString("F10")} v:{pair.Key.linearVelocity.ToString("F10")} a:{pair.Key.angularVelocity.ToString("F10")} accF:{pair.Key.GetAccumulatedForce().ToString("F10")} accT:{pair.Key.GetAccumulatedTorque().ToString("F10")}");
+            }
+        }
+        
         public void Simulate()
         {
+            if (LOG_STEP)
+            {
+                LogState();
+            }
+            
             _SimStep();
+            
+            if (LOG_STEP)
+            {
+                LogState();
+            }
         }
         
         public void Resimulate(ClientPredictedEntity entity)
