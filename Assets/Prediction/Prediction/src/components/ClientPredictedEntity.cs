@@ -246,7 +246,6 @@ namespace Prediction
             lastCheckedServerTickId = serverState.tickId;
             fromTick = serverState.tickId;
             if (TRUST_ALREADY_RESIMULATED_TICKS && tickResimCounter.GetValueOrDefault(fromTick, 0u) > 1)
-            //if (TRUST_ALREADY_RESIMULATED_TICKS && resimTicksOverbudget > 0)
             {
                 //TODO: toggle this log
                 Debug.Log($"[RESIMULATION][SKIP_CHECK] i:{id} t:{lastAppliedTick} st:{serverState.tickId}");

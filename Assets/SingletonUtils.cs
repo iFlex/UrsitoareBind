@@ -39,18 +39,6 @@ namespace DefaultNamespace
                 PlayerController pc = localCPE.gameObject.GetComponent<PlayerController>();
                 pc.fcam.gameObject.SetActive(!pc.fcam.gameObject.activeSelf);
             }
-
-            if (Input.GetKeyDown(KeyCode.A))
-            {
-                PredictionManager.Instance.maxResimulationOverbudget++;
-            }
-            if (Input.GetKeyDown(KeyCode.Z))
-            {
-                if (PredictionManager.Instance.maxResimulationOverbudget != 0)
-                {
-                    PredictionManager.Instance.maxResimulationOverbudget--;
-                }
-            }
             
             //TODO: control more of the latency sim properties here.
             if (Input.GetKey(KeyCode.L) && Input.GetKeyDown(KeyCode.Alpha0))

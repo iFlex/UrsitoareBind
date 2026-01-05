@@ -65,7 +65,6 @@ public class PredictionTextDebugger : MonoBehaviour
                       $"TotalResimSteps:{PredictionManager.Instance.totalResimulationSteps} ({(float)PredictionManager.Instance.totalResimulationSteps / PredictionManager.Instance.tickId * 100}%)\n " +
                       $"ResimSkips:{PredictionManager.Instance.totalResimulationsSkipped}\n " +
                       $"ResimSkipsTooSoon:{PredictionManager.Instance.resimSkipNotEnoughHistory}\n " +
-                      $"MaxResimOverbudget:{PredictionManager.Instance.maxResimulationOverbudget}\n " +
                       $"MaxSvDelay:{PredictionManager.Instance.GetLocalEntity().maxServerDelay}\n " +
                       $"Velo:{PredictionManager.Instance.GetLocalEntity().rigidbody.linearVelocity.magnitude}\n " +
                       $"SvMissingHist:{PredictionManager.Instance.GetLocalEntity().countMissingServerHistory}\n " +

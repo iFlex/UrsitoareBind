@@ -70,8 +70,10 @@ namespace Prediction
         private WorldStateRecord _worldStateRecord = new WorldStateRecord();
         
         public bool snapOnSimSkip = false;
+        //NOTE: either use protectFromOversimulation or TRUST_ALREADY_RESIMULATED_TICKS, no both
         public bool protectFromOversimulation = true;
-        public uint maxResimulationOverbudget = 2;
+        public uint maxTickResimulationCount = 1;
+        private Dictionary<uint, uint> tickResimCounter = new Dictionary<uint, uint>();
 
         public uint totalResimulationsDueToAuthority = 0;
         public uint totalResimulationsDueToFollowers = 0;
@@ -79,7 +81,6 @@ namespace Prediction
         
         public uint totalResimulations = 0;
         public uint totalResimulationSteps = 0;
-        public uint totalResimulationStepsOverbudget = 0;
         public uint totalDesyncToSnapCount = 0;
         
         public uint totalResimulationsTriggeredByLocalAuthority = 0;
@@ -500,10 +501,7 @@ namespace Prediction
                 PredictionDecision decision = ComputePredictionDecision(out uint fromTick);
                 
                 //OVERSIMULATION PROTECTION
-                if (protectFromOversimulation 
-                    && maxResimulationOverbudget > 0
-                    && decision == PredictionDecision.RESIMULATE 
-                    && totalResimulationStepsOverbudget > maxResimulationOverbudget)
+                if (decision == PredictionDecision.RESIMULATE && !CanResiumlate(fromTick))
                 {
                     decision = PredictionDecision.NOOP;
                     totalResimulationsSkipped++;
@@ -512,10 +510,6 @@ namespace Prediction
                 switch (decision)
                 {
                     case PredictionDecision.NOOP:
-                        if (totalResimulationStepsOverbudget > 0)
-                        {
-                            totalResimulationStepsOverbudget--;
-                        }
                         break;
                     
                     case PredictionDecision.RESIMULATE:
@@ -576,6 +570,7 @@ namespace Prediction
                 }
             }
             //All relevant bodies are now at the end of startTick
+            MarkResimulatedTick(startTick);
             
             uint index = startTick + 1;
             while (index < tickId)
@@ -591,15 +586,24 @@ namespace Prediction
                     pair.Value.PostResimulationStep(index);
                 }
                 
+                MarkResimulatedTick(index);
                 index++;
                 totalResimulationSteps++;
-                totalResimulationStepsOverbudget++;
+                
             }
             
             totalResimulations++;
             resimulation.Dispatch(false);
             PHYSICS_CONTROLLER.AfterResimulate(null);
             resimulating = false;
+        }
+
+        void MarkResimulatedTick(uint tid)
+        {
+            if (protectFromOversimulation)
+            {
+                tickResimCounter[tid] = tickResimCounter.GetValueOrDefault(tid, 0u) + 1;
+            }
         }
 
         //TODO: unit test this
@@ -904,15 +908,9 @@ namespace Prediction
             public uint tickId;
         }
         
-        bool CanResiumlate()
+        bool CanResiumlate(uint tid)
         {
-            //return !protectFromOversimulation || () < maxAllowedAvgResimPerTick;
-            return !protectFromOversimulation || totalResimulationStepsOverbudget == 0;
-        }
-
-        public uint GetResimulationOverbudget()
-        {
-            return totalResimulationStepsOverbudget;
+            return !protectFromOversimulation || tickResimCounter.GetValueOrDefault(tid, 0u) < maxTickResimulationCount;
         }
         
         public uint GetTotalTicks()
