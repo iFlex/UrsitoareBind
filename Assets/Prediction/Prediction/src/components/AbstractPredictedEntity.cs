@@ -14,6 +14,7 @@ namespace Prediction
 
         protected int totalFloatInputs = 0;
         protected int totalBinaryInputs = 0;
+        protected bool isControllable = false;
         
         protected AbstractPredictedEntity(uint identifier, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors)
         {
@@ -23,6 +24,7 @@ namespace Prediction
             this.controllablePredictionContributors = controllablePredictionContributors;
             this.predictionContributors = predictionContributors;
             
+            isControllable = controllablePredictionContributors.Length > 0;
             for (int i = 0; i < controllablePredictionContributors.Length; i++)
             {
                 totalFloatInputs += controllablePredictionContributors[i].GetFloatInputCount();
@@ -76,6 +78,11 @@ namespace Prediction
         public override int GetHashCode()
         {
             return (int) id;
+        }
+
+        public bool IsControllable()
+        {
+            return isControllable;
         }
     }
 }

@@ -10,7 +10,6 @@ namespace Prediction.wrappers
         ClientPredictedEntity GetClientEntity();
         ServerPredictedEntity GetServerEntity();
         PredictedEntityVisuals GetVisualsControlled();
-        bool IsControlledLocally();
         bool IsServer();
         bool IsClient();
         bool IsClientOnly()

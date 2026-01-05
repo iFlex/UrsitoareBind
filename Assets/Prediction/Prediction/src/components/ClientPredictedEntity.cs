@@ -14,6 +14,10 @@ namespace Prediction
         public static bool DEBUG = false;
         public static bool LOG_USED_INPUTS = false;
         public static bool TRUST_ALREADY_RESIMULATED_TICKS = false;
+        public static bool APPLY_SERVER_INPUT_TO_FOLLOWERS = true;
+        public static bool LOG_VELOCITIES = false;
+        public static bool LOG_VELOCITIES_ALL = false;
+        public static bool TRACK_RESIM_DISCREPANCIES = true;
         
         //STATE TRACKING
         public GameObject gameObject;
@@ -44,8 +48,12 @@ namespace Prediction
         //This is used exclusively in follower mode (predicted entity not controlled by user).
         public bool isControlledLocally { get; private set; }
         private uint resimTicksOverbudget = 0;
-        //STATS
+        private uint lastAppliedFollowerTick = 0;
+        public uint lastCheckedServerTickId = 0;
         public uint lastTick = 0;
+        private Dictionary<uint, uint> tickResimCounter = new Dictionary<uint, uint>();
+        
+        //STATS //TODO: reset?
         public uint totalTicks = 0;
         public uint ticksAsFollower = 0;
         public uint ticksAsLocalAuthority = 0;
@@ -53,6 +61,12 @@ namespace Prediction
         public uint resimTicksAsAuthority = 0;
         public uint resimTicksAsFollower = 0;
         public uint maxServerDelay = 0;
+        private uint resimCounter = 0;
+        public uint resimChecksSkippedDueToLackOfServerData = 0;
+        public uint resimChecksSkippedDueToServerAheadOfClient = 0;
+        public uint lastSvTickId = 0;
+        public uint oldServerTickCount = 0;
+        public uint countMissingServerHistory = 0;
         
         public ClientPredictedEntity(uint id, bool isServer, int bufferSize, Rigidbody rb, GameObject visuals, PredictableControllableComponent[] controllablePredictionContributors, PredictableComponent[] predictionContributors) : base(id, rb, visuals, controllablePredictionContributors, predictionContributors)
         {
@@ -125,7 +139,7 @@ namespace Prediction
         {
             return localInputBuffer.Get((int)lastTick);
         }
-    
+        
         //TODO: unit test
         public void ClientFollowerSimulationTick(uint tickId)
         {
@@ -133,28 +147,44 @@ namespace Prediction
             {
                 throw new Exception("COMPONENT_MISUSE: locally controlled entity called ClientFollowerSimulationTick");
             }
+
+            if (IsControllable())
+            {
+                if (lastAppliedFollowerTick < serverStateBuffer.GetEndTick())
+                {
+                    lastAppliedFollowerTick = serverStateBuffer.GetEndTick();
+                    PhysicsStateRecord latestServerState = serverStateBuffer.GetEnd();
+                    if (latestServerState != null)
+                    {
+                        SnapTo(latestServerState);
+                        if (APPLY_SERVER_INPUT_TO_FOLLOWERS)
+                        {
+                            PredictionInputRecord input = latestServerState.input;
+                            if (input != null)
+                            {
+                                LoadInput(input);
+                                if (DEBUG)
+                                    Debug.Log($"[ClientPredictedEntiy][ClientFollowerSimulationTick][OK] entityId:{id} withInput:{input} psr:{latestServerState}");
+                            }
+                            else
+                            {
+                                if (DEBUG)
+                                    Debug.Log($"[ClientPredictedEntiy][ClientFollowerSimulationTick][NO_INPT] entityId:{id} Missing input");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (DEBUG)
+                            Debug.Log($"[ClientPredictedEntiy][ClientFollowerSimulationTick][MISSING] entityId:{id} Missing end of buffer...");
+                    }
+                    
+                    //NOTE: by design we don't call LoadInput again in the absence of a server tick, expect each input driven component to keep state and use it in the absence of new input.
+                }
+            }
+            //NOTE: non-controllable followers need nothing here...
             
-            PhysicsStateRecord psr = serverStateBuffer.GetEnd();
-            if (psr != null)
-            {
-                PredictionInputRecord input = psr.input;
-                if (input != null)
-                {
-                    LoadInput(input);
-                    if (DEBUG)
-                        Debug.Log($"[ClientPredictedEntiy][ClientFollowerSimulationTick][OK] entityId:{id} withInput:{input} psr:{psr}");
-                }
-                else
-                {
-                    if (DEBUG)
-                        Debug.Log($"[ClientPredictedEntiy][ClientFollowerSimulationTick][NO_INPT] entityId:{id} Missing input");
-                }
-            }
-            else
-            {
-                if (DEBUG)
-                    Debug.Log($"[ClientPredictedEntiy][ClientFollowerSimulationTick][MISSING] entityId:{id} Missing end of buffer...");
-            }
+            //NOTE: we also always apply forces as there can be game logic that computes how the object moves.
             ApplyForces();
             ticksAsFollower++;
             totalTicks++;
@@ -207,12 +237,6 @@ namespace Prediction
             PhysicsStateRecord serverState = serverStateBuffer.Get(tickId);
             Debug.Log($"{(isResim ? "[RESIMULATION]" : "[CL][SIMULATION]")}[DATA] i:{id} t:{tickId} v:{rigidbody.linearVelocity.magnitude} av:{rigidbody.angularVelocity.magnitude} (p:{rigidbody.position.ToString("F10")} r:{rigidbody.rotation.ToString("F10")} v:{rigidbody.linearVelocity.ToString("F10")} a:{rigidbody.angularVelocity.ToString("F10")}) SERVER(p:{(serverState == null ? "x" : serverState.position.ToString("F10"))} r:{(serverState == null ? "x" : serverState.rotation.ToString("F10"))} v:{(serverState == null ? "x" : serverState.velocity.ToString("F10"))} a:{(serverState == null ? "x" : serverState.angularVelocity.ToString("F10"))})");
         }
-
-        public uint resimChecksSkippedDueToLackOfServerData = 0;
-        public uint resimChecksSkippedDueToServerAheadOfClient = 0;
-        public static bool LOG_VELOCITIES = false;
-        public static bool LOG_VELOCITIES_ALL = false;
-        public uint lastCheckedServerTickId = 0;
         
         private DesyncEvent devt;
         public virtual PredictionDecision GetPredictionDecision(uint lastAppliedTick, out uint fromTick)
@@ -261,9 +285,7 @@ namespace Prediction
             }
             return resimulationEligibilityCheckHook(id, serverState.tickId, localStateBuffer, serverStateBuffer);
         }
-
-        public uint lastSvTickId = 0;
-        public uint oldServerTickCount = 0;
+        
         bool AddServerState(uint lastAppliedTick, PhysicsStateRecord serverRecord)
         {
             if (DEBUG)
@@ -296,7 +318,15 @@ namespace Prediction
             return singleStateResimulationEligibilityHook.Invoke(entityId, tickId, localState, serverState);
         }
 
-        public uint countMissingServerHistory = 0;
+        public void SnapToServerIfExists(uint tickId)
+        {
+            PhysicsStateRecord state = serverStateBuffer.Get(tickId);
+            if (state != null)
+            {
+                SnapTo(state);
+            }
+        }
+        
         public void SnapToServer(uint tickId)
         {
             PhysicsStateRecord state = serverStateBuffer.Get(tickId);
@@ -354,13 +384,9 @@ namespace Prediction
             resimulationStep.Dispatch(true);
             //TODO: do we need anything here? apply input from server?
         }
-
-        public static bool TRACK_RESIM_DISCREPANCIES = true;
-        private Dictionary<uint, uint> tickResimCounter = new Dictionary<uint, uint>();
+        
         private PhysicsStateRecord prevResimState = new PhysicsStateRecord();
         private SimpleConfigurableResimulationDecider resimDesyncComparator = new SimpleConfigurableResimulationDecider(float.MinValue, float.MinValue, float.MinValue, float.MinValue);
-        private uint resimCounter = 0;
-        
         public void PostResimulationStep(uint tickId)
         {
             //TODO: check conversion to int
@@ -400,11 +426,18 @@ namespace Prediction
             isControlledLocally = controlled;
         }
         
+        //TODO: check if there are otherv ars to reset
         public void Reset()
         {
+            lastAppliedFollowerTick = 0;
+            resimTicksOverbudget = 0;
+            lastTick = 0;
+            lastCheckedServerTickId = 0;
+            
             localInputBuffer.Clear();
             localStateBuffer.Clear();
             serverStateBuffer.Clear();
+            tickResimCounter.Clear();
             onReset.Dispatch(true);
         }
         

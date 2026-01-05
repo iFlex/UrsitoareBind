@@ -19,6 +19,7 @@ namespace Prediction
         
         //TODO: unit test
         public static bool IGNORE_NON_AUTH_RESIM_DECISIONS = false;
+        public static bool IGNORE_CONTROLLABLE_FOLLOWER_DECISIONS = true;
         public static bool LOG_PRE_SIM_STATE = false;
         
         //TODO: guard singleton
@@ -441,6 +442,12 @@ namespace Prediction
             }
             return PredictionDecision.NOOP;
         }
+
+        bool ShouldIgnoreResimulationDecision(ClientPredictedEntity entity)
+        {
+            return (IGNORE_NON_AUTH_RESIM_DECISIONS && entity.id != localEntityId) ||
+                   (IGNORE_CONTROLLABLE_FOLLOWER_DECISIONS && entity.IsControllable());
+        }
         
         //TODO: package private
         //TODO: ability to only resimulate for locally controlled object
@@ -456,7 +463,7 @@ namespace Prediction
             {
                 PredictionDecision decision =
                     pair.Value.GetPredictionDecision(tickId, out uint localFromTick);
-                if (IGNORE_NON_AUTH_RESIM_DECISIONS && pair.Key != localEntityId)
+                if (ShouldIgnoreResimulationDecision(pair.Value))
                 {
                     localFromTick = resimFromTickId;
                     decision = PredictionDecision.NOOP;
@@ -524,6 +531,7 @@ namespace Prediction
         }
         
         //TODO: unit test this!!!
+        public bool resimUseAvailableServerTicks = true;
         public bool correctWholeWorldWhenResimulating = true;
         public uint resimSkipNotEnoughHistory = 0;
         public bool resimulating = false;
@@ -583,6 +591,11 @@ namespace Prediction
                 PHYSICS_CONTROLLER.Resimulate(null);
                 foreach (KeyValuePair<uint, ClientPredictedEntity> pair in _clientEntities)
                 {
+                    if (resimUseAvailableServerTicks)
+                    {
+                        //NOTE: the resimulation step may have caused slightly different position and rotation, and also may have caused triggering of OnCollision events for those positions
+                        pair.Value.SnapToServerIfExists(index);
+                    }
                     pair.Value.PostResimulationStep(index);
                 }
                 
@@ -597,7 +610,7 @@ namespace Prediction
             PHYSICS_CONTROLLER.AfterResimulate(null);
             resimulating = false;
         }
-
+        
         void MarkResimulatedTick(uint tid)
         {
             if (protectFromOversimulation)
