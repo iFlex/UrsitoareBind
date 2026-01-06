@@ -45,6 +45,9 @@ namespace Prediction
         public TickIndexedBuffer<PhysicsStateRecord> serverStateBuffer;
         private bool isServer;
         
+        //NOTE: if you disable prediction, you have to move the object manually
+        public bool predictionDisabled = false;
+        
         //This is used exclusively in follower mode (predicted entity not controlled by user).
         public bool isControlledLocally { get; private set; }
         private uint resimTicksOverbudget = 0;
@@ -114,6 +117,10 @@ namespace Prediction
             if (!isControlledLocally)
             {
                 throw new Exception("COMPONENT_MISUSE: NON locally controlled entity called ClientSimulationTick");
+            }
+            if (predictionDisabled)
+            {
+                return null;
             }
             
             PredictionInputRecord inputRecord = SampleInput(tickId);
@@ -242,6 +249,11 @@ namespace Prediction
         public virtual PredictionDecision GetPredictionDecision(uint lastAppliedTick, out uint fromTick)
         {
             fromTick = 0;
+            if (predictionDisabled)
+            {
+                return PredictionDecision.NOOP;
+            }
+            
             //NOTE: .GetEnt() is always behind lastAppliedTick, so should be fine...
             PhysicsStateRecord serverState = serverStateBuffer.GetEnd();
             //NOTE: somehow the server reports are in the future. Don't resimulate until we get there too
