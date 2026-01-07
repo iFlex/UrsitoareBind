@@ -5,7 +5,7 @@ using Prediction.data;
 using Prediction.Interpolation;
 using Prediction.policies.singleInstance;
 using Prediction.Simulation;
-using Prediction.wrappers;
+using Prediction.Wrappers;
 using UnityEngine;
 
 namespace Prediction

@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace Prediction.wrappers
+namespace Prediction.Wrappers
 {
     public interface PredictedEntity
     {
