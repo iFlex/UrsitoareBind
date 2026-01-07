@@ -1,5 +1,4 @@
-﻿#if (UNITY_EDITOR) 
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using NUnit.Framework;
 using Prediction.data;
 using Prediction.policies.singleInstance;
@@ -306,4 +305,3 @@ namespace Prediction.Tests
         //TODO: test larger packet drop? test repeated package?
     }
 }
-#endif

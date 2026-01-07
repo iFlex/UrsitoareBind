@@ -1,9 +1,10 @@
 {
-    "name": "sector0.physics.prediction-tests",
-    "rootNamespace": "",
+    "name": "sector0.ursitoare",
+    "rootNamespace": "Prediction",
     "references": [
-        "GUID:dbe6a3ba163e4ea48abea10d05fb744e",
-        "GUID:3d3036d29bf95a74c8ab257abc8e6c09"
+        "GUID:3d3036d29bf95a74c8ab257abc8e6c09",
+        "GUID:72872094b21c16e48b631b2224833d49",
+        "GUID:30817c1a0e6d646d99c048fc403f5979"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
