@@ -3,7 +3,7 @@ using DefaultNamespace;
 using Prediction;
 using Prediction.Interpolation;
 using Prediction.policies.singleInstance;
-using Prediction.wrappers;
+using Prediction.Wrappers;
 using UnityEngine;
 
 public class PredictionTextDebugger : MonoBehaviour

@@ -4,8 +4,7 @@ using Mirror;
 using Prediction;
 using Prediction.data;
 using Prediction.Interpolation;
-using Prediction.policies.singleInstance;
-using Prediction.wrappers;
+using Prediction.Wrappers;
 using Unity.Cinemachine;
 using UnityEngine;
 

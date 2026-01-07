@@ -2,9 +2,8 @@
 using Mirror;
 using Prediction;
 using Prediction.data;
-using Prediction.Interpolation;
 using Prediction.policies.singleInstance;
-using Prediction.wrappers;
+using Prediction.Wrappers;
 using UnityEngine;
 
 namespace DefaultNamespace
