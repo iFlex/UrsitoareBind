@@ -77,7 +77,7 @@ namespace Prediction
                     serverGhost.transform.rotation = rec.rotation;   
                 }
             }
-            interpolationProvider.Update(Time.deltaTime);
+            interpolationProvider.Update(Time.deltaTime, PredictionManager.Instance.tickId);
         }
 
         void OnShouldReset(bool ign)
