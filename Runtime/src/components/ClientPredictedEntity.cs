@@ -55,6 +55,7 @@ namespace Prediction
         public uint lastCheckedServerTickId = 0;
         public uint lastTick = 0;
         private Dictionary<uint, uint> tickResimCounter = new Dictionary<uint, uint>();
+        private bool isCurrentStateSpeculative = false;
         
         //STATS //TODO: reset?
         public uint totalTicks = 0;
@@ -139,6 +140,8 @@ namespace Prediction
             {
                 resimTicksOverbudget--;
             }
+
+            isCurrentStateSpeculative = false; //TODO: optimize
             return inputRecord;
         }
 
@@ -155,6 +158,7 @@ namespace Prediction
                 throw new Exception("COMPONENT_MISUSE: locally controlled entity called ClientFollowerSimulationTick");
             }
 
+            isCurrentStateSpeculative = true;
             if (IsControllable())
             {
                 if (lastAppliedFollowerTick < serverStateBuffer.GetEndTick())
@@ -163,6 +167,7 @@ namespace Prediction
                     PhysicsStateRecord latestServerState = serverStateBuffer.GetEnd();
                     if (latestServerState != null)
                     {
+                        isCurrentStateSpeculative = false;
                         SnapTo(latestServerState);
                         if (APPLY_SERVER_INPUT_TO_FOLLOWERS)
                         {
